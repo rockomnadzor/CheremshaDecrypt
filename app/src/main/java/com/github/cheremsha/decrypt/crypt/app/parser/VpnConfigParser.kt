@@ -50,11 +50,11 @@ object VpnConfigParser {
                 val out = outbounds.optJSONObject(i) ?: continue
                 val proto = out.optString("protocol", "")
                 if (proto in listOf("freedom", "blackhole", "dns")) continue
-                val stream  = out.optJSONObject("streamSettings") ?: JSONObject()
-                val net     = stream.optString("network", "tcp")
-                val sec     = stream.optString("security", "none")
-                val sets    = out.optJSONObject("settings") ?: JSONObject()
-                val enc     = URLEncoder.encode(remarks, "UTF-8")
+                val stream = out.optJSONObject("streamSettings") ?: JSONObject()
+                val net    = stream.optString("network", "tcp")
+                val sec    = stream.optString("security", "none")
+                val sets   = out.optJSONObject("settings") ?: JSONObject()
+                val enc    = URLEncoder.encode(remarks, "UTF-8")
 
                 when (proto) {
                     "vless" -> {
@@ -73,12 +73,12 @@ object VpnConfigParser {
                         val srv   = vnext.getJSONObject(0)
                         val user  = srv.getJSONArray("users").getJSONObject(0)
                         val obj   = JSONObject().apply {
-                            put("v","2"); put("ps",remarks)
+                            put("v", "2"); put("ps", remarks)
                             put("add", srv.getString("address"))
                             put("port", srv.getInt("port").toString())
-                            put("id",  user.getString("id"))
-                            put("aid", user.optInt("alterId",0).toString())
-                            put("net", net); put("tls", sec); put("type","none")
+                            put("id", user.getString("id"))
+                            put("aid", user.optInt("alterId", 0).toString())
+                            put("net", net); put("tls", sec); put("type", "none")
                         }
                         links += "vmess://${Base64.encodeToString(obj.toString().toByteArray(), Base64.NO_WRAP)}"
                     }
@@ -104,47 +104,53 @@ object VpnConfigParser {
         return LINK_REGEX.findAll(text).mapNotNull { parseForDisplay(it.value) }.toList()
     }
 
-    fun parseForDisplay(rawLink: String): VpnConfig? = try {
-        val protocol = when {
-            rawLink.startsWith("vless://")  -> "VLESS"
-            rawLink.startsWith("vmess://")  -> "VMESS"
-            rawLink.startsWith("trojan://") -> "TROJAN"
-            rawLink.startsWith("ss://")     -> "SS"
-            rawLink.startsWith("ssr://")    -> "SSR"
-            else -> return null
-        }
-
-        val remarks = rawLink.substringAfterLast('#', "").let { frag ->
-            if (frag.isNotBlank()) try { URLDecoder.decode(frag, "UTF-8") }
-            catch (_: Exception) { frag } else "Config"
-        }
-
-        val endpoint = when (protocol) {
-            "VMESS" -> {
-                val b64 = rawLink.removePrefix("vmess://").substringBefore("#")
-                val json = JSONObject(String(Base64.decode(b64, Base64.DEFAULT)))
-                "${json.optString("add","?")}:${json.optString("port","?")}"
+    fun parseForDisplay(rawLink: String): VpnConfig? {
+        return try {
+            val protocol = when {
+                rawLink.startsWith("vless://")  -> "VLESS"
+                rawLink.startsWith("vmess://")  -> "VMESS"
+                rawLink.startsWith("trojan://") -> "TROJAN"
+                rawLink.startsWith("ss://")     -> "SS"
+                rawLink.startsWith("ssr://")    -> "SSR"
+                else -> return null
             }
-            else -> {
-                val noScheme = rawLink.substringAfter("://")
-                val atIdx = noScheme.indexOf('@')
-                val hostPort = (if (atIdx >= 0) noScheme.substring(atIdx + 1) else noScheme)
-                    .substringBefore("?").substringBefore("#")
-                hostPort
+
+            val remarks = rawLink.substringAfterLast('#', "").let { frag ->
+                if (frag.isNotBlank()) try { URLDecoder.decode(frag, "UTF-8") }
+                catch (_: Exception) { frag } else "Config"
             }
-        }
 
-        VpnConfig(protocol, remarks, endpoint, rawLink)
-    } catch (_: Exception) { null }
+            val endpoint = when (protocol) {
+                "VMESS" -> {
+                    val b64  = rawLink.removePrefix("vmess://").substringBefore("#")
+                    val json = JSONObject(String(Base64.decode(b64, Base64.DEFAULT)))
+                    "${json.optString("add", "?")}:${json.optString("port", "?")}"
+                }
+                else -> {
+                    val noScheme = rawLink.substringAfter("://")
+                    val atIdx    = noScheme.indexOf('@')
+                    val hostPort = (if (atIdx >= 0) noScheme.substring(atIdx + 1) else noScheme)
+                        .substringBefore("?").substringBefore("#")
+                    hostPort
+                }
+            }
 
-    private fun isJson(s: String): Boolean {
-        val t = s.trim(); return (t.startsWith("{") && t.endsWith("}")) || t.startsWith("[")
+            VpnConfig(protocol, remarks, endpoint, rawLink)
+        } catch (_: Exception) { null }
     }
 
-    private fun tryBase64(s: String): String? = try {
-        val p = s.trim(); val padded = p + "=".repeat((4 - p.length % 4) % 4)
-        Base64.decode(padded, Base64.DEFAULT).toString(Charsets.UTF_8)
-    } catch (_: Exception) { null }
+    private fun isJson(s: String): Boolean {
+        val t = s.trim()
+        return (t.startsWith("{") && t.endsWith("}")) || t.startsWith("[")
+    }
+
+    private fun tryBase64(s: String): String? {
+        return try {
+            val p = s.trim()
+            val padded = p + "=".repeat((4 - p.length % 4) % 4)
+            Base64.decode(padded, Base64.DEFAULT).toString(Charsets.UTF_8)
+        } catch (_: Exception) { null }
+    }
 
     private fun List<VpnConfig>.deduplicate(): List<VpnConfig> {
         val seen = mutableSetOf<String>()
