@@ -100,8 +100,9 @@ object VpnConfigParser {
         return links.mapNotNull { parseForDisplay(it) }
     }
 
-    private fun extractDirect(text: String): List<VpnConfig> =
-        LINK_REGEX.findAll(text).mapNotNull { parseForDisplay(it.value) }.toList()
+    private fun extractDirect(text: String): List<VpnConfig> {
+        return LINK_REGEX.findAll(text).mapNotNull { parseForDisplay(it.value) }.toList()
+    }
 
     fun parseForDisplay(rawLink: String): VpnConfig? = try {
         val protocol = when {
@@ -121,7 +122,7 @@ object VpnConfigParser {
         val endpoint = when (protocol) {
             "VMESS" -> {
                 val b64 = rawLink.removePrefix("vmess://").substringBefore("#")
-                val json = JSONObject(String(Base64.decode(b64, Base64.DEFAULT or Base64.IGNORE_UNKNOWN)))
+                val json = JSONObject(String(Base64.decode(b64, Base64.DEFAULT)))
                 "${json.optString("add","?")}:${json.optString("port","?")}"
             }
             else -> {
