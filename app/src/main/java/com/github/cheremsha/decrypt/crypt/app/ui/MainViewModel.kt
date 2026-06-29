@@ -17,18 +17,38 @@ import kotlinx.coroutines.withContext
 import java.io.File
 
 sealed class UiState {
-    object Idle : UiState()
-    data class Working(val step: String) : UiState()
+    object Idle                                    : UiState()
+    data class Working(val step: String)           : UiState()
     data class Success(val url: String, val count: Int) : UiState()
-    data class Error(val msg: String) : UiState()
+    data class Error(val msg: String)              : UiState()
 }
 
 class MainViewModel(app: Application) : AndroidViewModel(app) {
 
-    val hwid: String = Settings.Secure.getString(
-        app.contentResolver, Settings.Secure.ANDROID_ID
-    ) ?: "a67d61b1c88dc678"
+    companion object {
+        const val STATIC_HWID = "a67d61b1c88dc678"
+    }
 
+    // Устройства Android ID
+    val deviceHwid: String = Settings.Secure.getString(
+        app.contentResolver, Settings.Secure.ANDROID_ID
+    ) ?: STATIC_HWID
+
+    // HWID управление
+    private val _useStaticHwid = MutableStateFlow(false)
+    val useStaticHwid: StateFlow<Boolean> = _useStaticHwid.asStateFlow()
+
+    private val _customHwid = MutableStateFlow(deviceHwid)
+    val customHwid: StateFlow<String> = _customHwid.asStateFlow()
+
+    val effectiveHwid: StateFlow<String> = combine(_useStaticHwid, _customHwid) { useStatic, custom ->
+        if (useStatic) STATIC_HWID else custom.ifBlank { deviceHwid }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), deviceHwid)
+
+    fun setUseStaticHwid(v: Boolean) { _useStaticHwid.value = v }
+    fun setCustomHwid(v: String)     { _customHwid.value = v }
+
+    // Основное
     private val _state   = MutableStateFlow<UiState>(UiState.Idle)
     val state = _state.asStateFlow()
 
@@ -51,22 +71,20 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     fun process() = viewModelScope.launch {
         _state.value   = UiState.Working("Инициализация...")
         _configs.value = emptyList()
+        val hwid = effectiveHwid.value
         runCatching {
             val raw = _input.value.trim()
 
-            // 1. Decrypt happ:// if needed
             val url = if (raw.startsWith("happ://")) {
                 _state.value = UiState.Working("Дешифровка RSA...")
                 HappDecryptor.decrypt(raw).getOrThrow().url
             } else raw
 
-            // 2. Fetch subscription if it's a URL
             val content = if (url.startsWith("http")) {
                 _state.value = UiState.Working("Загрузка подписки...")
                 SubFetcher.fetch(url, hwid)
             } else url
 
-            // 3. Parse configs
             _state.value = UiState.Working("Парсинг конфигов...")
             val result = withContext(Dispatchers.Default) { VpnConfigParser.parse(content) }
 
@@ -79,8 +97,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     fun copyAll() {
         val app = getApplication<Application>()
         val text = _configs.value.joinToString("\n") { it.rawLink }
-        val cm = app.getSystemService(ClipboardManager::class.java)
-        cm.setPrimaryClip(ClipData.newPlainText("VPN Configs", text))
+        app.getSystemService(ClipboardManager::class.java)
+            .setPrimaryClip(ClipData.newPlainText("VPN Configs", text))
     }
 
     fun saveToFile(onDone: (String) -> Unit) = viewModelScope.launch(Dispatchers.IO) {
@@ -89,8 +107,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 android.os.Environment.getExternalStorageDirectory(), "Decrypts/TXT"
             ).also { it.mkdirs() }
             val domain = try {
-                java.net.URI((_state.value as? UiState.Success)?.url ?: "unknown")
-                    .host?.replace(":", "_") ?: "unknown"
+                java.net.URI((_state.value as? UiState.Success)?.url ?: "unknown").host
+                    ?.replace(":", "_") ?: "unknown"
             } catch (_: Exception) { "unknown" }
             val file = File(dir, "$domain.txt")
             file.writeText(_configs.value.joinToString("\n") { it.rawLink })
