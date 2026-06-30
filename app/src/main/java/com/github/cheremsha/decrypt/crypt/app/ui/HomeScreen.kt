@@ -32,31 +32,27 @@ import com.github.cheremsha.decrypt.crypt.app.parser.VpnConfig
 import com.github.cheremsha.decrypt.crypt.app.ui.theme.*
 
 @Composable
-fun HomeScreen(vm: MainViewModel) {
+fun HomeScreen(vm: MainViewModel, isDark: Boolean, onSettings: () -> Unit) {
     val context        = LocalContext.current
-    val clipboard      = LocalClipboardManager.current
-    val state          by vm.state.collectAsState()
-    val input          by vm.input.collectAsState()
-    val configs        by vm.configs.collectAsState()
-    val filtered       by vm.filtered.collectAsState()
-    val filter         by vm.filter.collectAsState()
-    val useStaticHwid  by vm.useStaticHwid.collectAsState()
-    val customHwid     by vm.customHwid.collectAsState()
-    val effectiveHwid  by vm.effectiveHwid.collectAsState()
+    val clipboard       = LocalClipboardManager.current
+    val colors          = LocalAppColors.current
+    val state           by vm.state.collectAsState()
+    val input           by vm.input.collectAsState()
+    val configs         by vm.configs.collectAsState()
+    val filtered        by vm.filtered.collectAsState()
+    val filter          by vm.filter.collectAsState()
+    val useStaticHwid    by vm.useStaticHwid.collectAsState()
+    val customHwid      by vm.customHwid.collectAsState()
+    val effectiveHwid   by vm.effectiveHwid.collectAsState()
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color.Black)
-    ) {
-        // Матричный дождь на фоне
+    Box(modifier = Modifier.fillMaxSize().background(colors.bg)) {
+
         MatrixRain(
             modifier = Modifier
                 .fillMaxSize()
-                .alpha(0.13f)
+                .alpha(if (isDark) 0.42f else 0.10f)
         )
 
-        // Основной контент
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
@@ -71,36 +67,32 @@ fun HomeScreen(vm: MainViewModel) {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
                         Text(
-                            "CHEREMSHA",
-                            color = Cyan,
-                            fontSize = 22.sp,
-                            fontWeight = FontWeight.ExtraBold,
-                            fontFamily = FontFamily.Monospace,
+                            "CHEREMSHA", color = Cyan, fontSize = 22.sp,
+                            fontWeight = FontWeight.ExtraBold, fontFamily = FontFamily.Monospace,
                             letterSpacing = 3.sp
                         )
                         Text(
-                            "DECRYPT",
-                            color = Purple,
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Bold,
-                            fontFamily = FontFamily.Monospace,
+                            "DECRYPT", color = Purple, fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace,
                             letterSpacing = 6.sp
                         )
                     }
-                    // Активный HWID в углу
                     Box(
                         Modifier
                             .clip(RoundedCornerShape(6.dp))
-                            .background(Color(0xFF080808))
-                            .border(1.dp, Color(0xFF1A1A1A), RoundedCornerShape(6.dp))
+                            .background(colors.cardBg)
+                            .border(1.dp, colors.border, RoundedCornerShape(6.dp))
                             .padding(horizontal = 8.dp, vertical = 5.dp)
                     ) {
                         Text(
                             effectiveHwid.take(10) + "…",
                             color = if (useStaticHwid) Orange else Cyan,
-                            fontSize = 10.sp,
-                            fontFamily = FontFamily.Monospace
+                            fontSize = 10.sp, fontFamily = FontFamily.Monospace
                         )
+                    }
+                    Spacer(Modifier.width(8.dp))
+                    IconButton(onClick = onSettings, modifier = Modifier.size(36.dp)) {
+                        Icon(Icons.Default.Settings, "Настройки", tint = colors.textSecondary)
                     }
                 }
             }
@@ -108,7 +100,7 @@ fun HomeScreen(vm: MainViewModel) {
             // ── HWID Card ─────────────────────────────────────────
             item {
                 Card(
-                    colors = CardDefaults.cardColors(containerColor = Color(0xCC080808)),
+                    colors = CardDefaults.cardColors(containerColor = colors.cardBg),
                     shape  = RoundedCornerShape(12.dp)
                 ) {
                     Column(Modifier.padding(12.dp)) {
@@ -118,16 +110,15 @@ fun HomeScreen(vm: MainViewModel) {
                                 onCheckedChange = vm::setUseStaticHwid,
                                 colors = CheckboxDefaults.colors(
                                     checkedColor   = Orange,
-                                    uncheckedColor = Color(0xFF333333)
+                                    uncheckedColor = colors.textDim
                                 ),
                                 modifier = Modifier.size(20.dp)
                             )
                             Spacer(Modifier.width(8.dp))
                             Text(
                                 "Статичный HWID",
-                                color = if (useStaticHwid) Orange else Color(0xFF555555),
-                                fontSize = 13.sp,
-                                fontFamily = FontFamily.Monospace
+                                color = if (useStaticHwid) Orange else colors.textSecondary,
+                                fontSize = 13.sp, fontFamily = FontFamily.Monospace
                             )
                             if (useStaticHwid) {
                                 Spacer(Modifier.width(6.dp))
@@ -139,9 +130,7 @@ fun HomeScreen(vm: MainViewModel) {
                                 ) {
                                     Text(
                                         MainViewModel.STATIC_HWID,
-                                        color = Orange,
-                                        fontSize = 10.sp,
-                                        fontFamily = FontFamily.Monospace
+                                        color = Orange, fontSize = 10.sp, fontFamily = FontFamily.Monospace
                                     )
                                 }
                             }
@@ -160,20 +149,18 @@ fun HomeScreen(vm: MainViewModel) {
                                     fontFamily = FontFamily.Monospace, fontSize = 13.sp),
                                 colors = OutlinedTextFieldDefaults.colors(
                                     focusedBorderColor   = Cyan.copy(alpha = 0.5f),
-                                    unfocusedBorderColor = Color(0xFF1A1A1A),
+                                    unfocusedBorderColor = colors.border,
                                     focusedTextColor     = Cyan,
-                                    unfocusedTextColor   = Color(0xFF666666),
+                                    unfocusedTextColor   = colors.textSecondary,
                                     focusedLabelColor    = Cyan,
-                                    unfocusedLabelColor  = Color(0xFF333333),
+                                    unfocusedLabelColor  = colors.textDim,
                                     cursorColor          = Cyan,
                                 )
                             )
                             Spacer(Modifier.height(4.dp))
                             Text(
                                 "Устройство: ${vm.deviceHwid}",
-                                color = Color(0xFF2A2A2A),
-                                fontSize = 10.sp,
-                                fontFamily = FontFamily.Monospace
+                                color = colors.textDim, fontSize = 10.sp, fontFamily = FontFamily.Monospace
                             )
                         }
                     }
@@ -184,38 +171,33 @@ fun HomeScreen(vm: MainViewModel) {
             item {
                 val isLoading = state is UiState.Working
                 Card(
-                    colors = CardDefaults.cardColors(containerColor = Color(0xCC0A0A0A)),
+                    colors = CardDefaults.cardColors(containerColor = colors.cardBg),
                     shape  = RoundedCornerShape(14.dp)
                 ) {
                     Column(Modifier.padding(14.dp)) {
                         Text(
                             "Подписка / happ:// / URL",
-                            color = Color(0xFF444444), fontSize = 11.sp,
+                            color = colors.textDim, fontSize = 11.sp,
                             fontWeight = FontWeight.Medium, letterSpacing = 1.sp
                         )
                         Spacer(Modifier.height(6.dp))
                         OutlinedTextField(
                             value = input,
                             onValueChange = vm::setInput,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .heightIn(min = 90.dp, max = 180.dp),
+                            modifier = Modifier.fillMaxWidth().heightIn(min = 90.dp, max = 180.dp),
                             placeholder = {
                                 Text(
                                     "happ://crypt1/... или https://...",
-                                    color = Color(0xFF1E1E1E), fontSize = 12.sp,
-                                    fontFamily = FontFamily.Monospace
+                                    color = colors.textDim, fontSize = 12.sp, fontFamily = FontFamily.Monospace
                                 )
                             },
                             keyboardOptions = KeyboardOptions(
-                                keyboardType = KeyboardType.Uri,
-                                imeAction    = ImeAction.Done
-                            ),
+                                keyboardType = KeyboardType.Uri, imeAction = ImeAction.Done),
                             colors = OutlinedTextFieldDefaults.colors(
                                 focusedBorderColor   = Cyan.copy(alpha = 0.6f),
-                                unfocusedBorderColor = Color(0xFF181818),
-                                focusedTextColor     = Color(0xFFCCFFFF),
-                                unfocusedTextColor   = Color(0xFF888888),
+                                unfocusedBorderColor = colors.border,
+                                focusedTextColor     = colors.textPrimary,
+                                unfocusedTextColor   = colors.textSecondary,
                                 cursorColor          = Cyan,
                             ),
                             textStyle = LocalTextStyle.current.copy(
@@ -231,8 +213,8 @@ fun HomeScreen(vm: MainViewModel) {
                                     if (t.isNotBlank()) vm.setInput(t)
                                 },
                                 modifier = Modifier.weight(1f),
-                                border = BorderStroke(1.dp, Color(0xFF1E1E1E)),
-                                colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFF555555)),
+                                border = BorderStroke(1.dp, colors.border),
+                                colors = ButtonDefaults.outlinedButtonColors(contentColor = colors.textSecondary),
                                 contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
                             ) {
                                 Icon(Icons.Default.ContentPaste, null, Modifier.size(15.dp))
@@ -260,11 +242,9 @@ fun HomeScreen(vm: MainViewModel) {
                                 .clip(RoundedCornerShape(10.dp))
                                 .background(
                                     if (canDecrypt)
-                                        Brush.horizontalGradient(
-                                            listOf(Color(0xFF003A40), Color(0xFF1A0030)))
+                                        Brush.horizontalGradient(listOf(Color(0xFF003A40), Color(0xFF1A0030)))
                                     else
-                                        Brush.horizontalGradient(
-                                            listOf(Color(0xFF111111), Color(0xFF111111)))
+                                        Brush.horizontalGradient(listOf(Color(0xFF111111), Color(0xFF111111)))
                                 )
                                 .clickable(enabled = canDecrypt) { vm.process() }
                                 .padding(vertical = 14.dp),
@@ -273,15 +253,11 @@ fun HomeScreen(vm: MainViewModel) {
                             if (isLoading) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     CircularProgressIndicator(
-                                        modifier    = Modifier.size(16.dp),
-                                        color       = Cyan,
-                                        strokeWidth = 2.dp
-                                    )
+                                        modifier = Modifier.size(16.dp), color = Cyan, strokeWidth = 2.dp)
                                     Spacer(Modifier.width(10.dp))
                                     Text(
                                         (state as UiState.Working).step,
-                                        color = Cyan, fontSize = 13.sp,
-                                        fontFamily = FontFamily.Monospace
+                                        color = Cyan, fontSize = 13.sp, fontFamily = FontFamily.Monospace
                                     )
                                 }
                             } else {
@@ -295,10 +271,8 @@ fun HomeScreen(vm: MainViewModel) {
                                     Text(
                                         "РАСШИФРОВАТЬ",
                                         color = if (canDecrypt) Cyan else Color(0xFF2A2A2A),
-                                        fontSize = 14.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        fontFamily = FontFamily.Monospace,
-                                        letterSpacing = 2.sp
+                                        fontSize = 14.sp, fontWeight = FontWeight.Bold,
+                                        fontFamily = FontFamily.Monospace, letterSpacing = 2.sp
                                     )
                                 }
                             }
@@ -336,8 +310,7 @@ fun HomeScreen(vm: MainViewModel) {
                             Spacer(Modifier.height(4.dp))
                             Text(
                                 s.url.take(60) + if (s.url.length > 60) "…" else "",
-                                color = Color(0xFF2A6A2A), fontSize = 10.sp,
-                                fontFamily = FontFamily.Monospace
+                                color = Color(0xFF2A6A2A), fontSize = 10.sp, fontFamily = FontFamily.Monospace
                             )
                         }
                     }
@@ -357,14 +330,14 @@ fun HomeScreen(vm: MainViewModel) {
                                 colors   = FilterChipDefaults.filterChipColors(
                                     selectedContainerColor = protoColor(proto).copy(alpha = 0.15f),
                                     selectedLabelColor     = protoColor(proto),
-                                    containerColor         = Color(0xFF0C0C0C),
-                                    labelColor             = Color(0xFF444444)
+                                    containerColor         = colors.cardBg,
+                                    labelColor             = colors.textDim
                                 ),
                                 border   = FilterChipDefaults.filterChipBorder(
                                     enabled             = true,
                                     selected            = filter == proto,
                                     selectedBorderColor = protoColor(proto).copy(alpha = 0.4f),
-                                    borderColor         = Color(0xFF1A1A1A)
+                                    borderColor         = colors.border
                                 )
                             )
                         }
@@ -372,7 +345,7 @@ fun HomeScreen(vm: MainViewModel) {
                 }
 
                 items(filtered, key = { it.rawLink }) { config ->
-                    ConfigCard(config) {
+                    ConfigCard(config, colors) {
                         clipboard.setText(AnnotatedString(config.rawLink))
                         Toast.makeText(context, "Скопировано", Toast.LENGTH_SHORT).show()
                     }
@@ -400,8 +373,8 @@ fun HomeScreen(vm: MainViewModel) {
                                 }
                             },
                             modifier = Modifier.weight(1f),
-                            border   = BorderStroke(1.dp, Color(0xFF1E1E1E)),
-                            colors   = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFF555555)),
+                            border   = BorderStroke(1.dp, colors.border),
+                            colors   = ButtonDefaults.outlinedButtonColors(contentColor = colors.textSecondary),
                             contentPadding = PaddingValues(vertical = 10.dp)
                         ) {
                             Icon(Icons.Default.SaveAlt, null, Modifier.size(16.dp))
@@ -417,11 +390,11 @@ fun HomeScreen(vm: MainViewModel) {
 }
 
 @Composable
-fun ConfigCard(config: VpnConfig, onCopy: () -> Unit) {
+fun ConfigCard(config: VpnConfig, colors: AppColors, onCopy: () -> Unit) {
     val color = protoColor(config.protocol)
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors   = CardDefaults.cardColors(containerColor = Color(0xBB0A0A0A)),
+        colors   = CardDefaults.cardColors(containerColor = colors.cardBg),
         shape    = RoundedCornerShape(10.dp)
     ) {
         Row(Modifier.padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -436,14 +409,14 @@ fun ConfigCard(config: VpnConfig, onCopy: () -> Unit) {
             }
             Spacer(Modifier.width(10.dp))
             Column(Modifier.weight(1f)) {
-                Text(config.remarks, color = Color(0xFFCCCCCC), fontSize = 13.sp,
+                Text(config.remarks, color = colors.textPrimary, fontSize = 13.sp,
                     fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text(config.endpoint, color = Color(0xFF3A3A3A), fontSize = 11.sp,
+                Text(config.endpoint, color = colors.textDim, fontSize = 11.sp,
                     fontFamily = FontFamily.Monospace, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
             IconButton(
                 onClick = onCopy, modifier = Modifier.size(34.dp),
-                colors  = IconButtonDefaults.iconButtonColors(contentColor = Color(0xFF333333))
+                colors  = IconButtonDefaults.iconButtonColors(contentColor = colors.textDim)
             ) { Icon(Icons.Default.ContentCopy, null, Modifier.size(16.dp)) }
         }
     }

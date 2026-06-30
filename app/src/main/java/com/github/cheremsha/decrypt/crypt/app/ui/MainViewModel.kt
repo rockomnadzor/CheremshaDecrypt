@@ -16,11 +16,13 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
 
+enum class ThemeMode { LIGHT, DARK, AUTO }
+
 sealed class UiState {
-    object Idle                                    : UiState()
-    data class Working(val step: String)           : UiState()
+    object Idle                                         : UiState()
+    data class Working(val step: String)                : UiState()
     data class Success(val url: String, val count: Int) : UiState()
-    data class Error(val msg: String)              : UiState()
+    data class Error(val msg: String)                   : UiState()
 }
 
 class MainViewModel(app: Application) : AndroidViewModel(app) {
@@ -29,12 +31,24 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         const val STATIC_HWID = "a67d61b1c88dc678"
     }
 
-    // Устройства Android ID
+    private val prefs = app.getSharedPreferences("cheremsha_prefs", 0)
+
+    // ── Тема ──────────────────────────────────────────────
+    private val _themeMode = MutableStateFlow(
+        ThemeMode.valueOf(prefs.getString("theme_mode", ThemeMode.DARK.name) ?: ThemeMode.DARK.name)
+    )
+    val themeMode: StateFlow<ThemeMode> = _themeMode.asStateFlow()
+
+    fun setThemeMode(mode: ThemeMode) {
+        _themeMode.value = mode
+        prefs.edit().putString("theme_mode", mode.name).apply()
+    }
+
+    // ── HWID ──────────────────────────────────────────────
     val deviceHwid: String = Settings.Secure.getString(
         app.contentResolver, Settings.Secure.ANDROID_ID
     ) ?: STATIC_HWID
 
-    // HWID управление
     private val _useStaticHwid = MutableStateFlow(false)
     val useStaticHwid: StateFlow<Boolean> = _useStaticHwid.asStateFlow()
 
@@ -48,17 +62,17 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     fun setUseStaticHwid(v: Boolean) { _useStaticHwid.value = v }
     fun setCustomHwid(v: String)     { _customHwid.value = v }
 
-    // Основное
-    private val _state   = MutableStateFlow<UiState>(UiState.Idle)
+    // ── Основное ──────────────────────────────────────────
+    private val _state = MutableStateFlow<UiState>(UiState.Idle)
     val state = _state.asStateFlow()
 
-    private val _input   = MutableStateFlow("")
+    private val _input = MutableStateFlow("")
     val input = _input.asStateFlow()
 
     private val _configs = MutableStateFlow<List<VpnConfig>>(emptyList())
     val configs = _configs.asStateFlow()
 
-    private val _filter  = MutableStateFlow("ВСЕ")
+    private val _filter = MutableStateFlow("ВСЕ")
     val filter = _filter.asStateFlow()
 
     val filtered = combine(_configs, _filter) { list, f ->

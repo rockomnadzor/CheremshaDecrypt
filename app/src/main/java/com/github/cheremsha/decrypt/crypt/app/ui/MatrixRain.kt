@@ -11,14 +11,14 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.rememberTextMeasurer
-import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
 import kotlin.random.Random
 
 private val CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789@#%&<>{}アイウエオカキクケコ".toList()
 private const val CELL = 16f
-private const val TICK = 110L
+private const val TICK = 70L
 
 private data class DropSnap(
     val x: Float,
@@ -48,8 +48,8 @@ fun MatrixRain(modifier: Modifier = Modifier) {
             Drop(
                 x     = i * CELL,
                 y     = -Random.nextInt(H.toInt().coerceAtLeast(1)).toFloat(),
-                speed = 0.8f + Random.nextFloat() * 2f,
-                len   = 8 + Random.nextInt(18),
+                speed = 1.1f + Random.nextFloat() * 2.6f,
+                len   = 10 + Random.nextInt(22),
                 chars = MutableList(32) { CHARS.random() }
             )
         }
@@ -61,11 +61,11 @@ fun MatrixRain(modifier: Modifier = Modifier) {
         while (true) {
             delay(TICK)
             drops.forEach { drop ->
-                drop.y += drop.speed * CELL * 0.22f
+                drop.y += drop.speed * CELL * 0.30f
                 if (drop.y > H + drop.len * CELL) {
                     drop.y = -Random.nextInt(H.toInt().coerceAtLeast(200)).toFloat()
                 }
-                if (Random.nextFloat() < 0.07f) {
+                if (Random.nextFloat() < 0.09f) {
                     drop.chars[Random.nextInt(drop.chars.size)] = CHARS.random()
                 }
             }
@@ -74,7 +74,7 @@ fun MatrixRain(modifier: Modifier = Modifier) {
     }
 
     val measurer = rememberTextMeasurer()
-    val data     = snapshot   // state read — triggers recomposition
+    val data     = snapshot
 
     Canvas(modifier) {
         data.forEach { drop ->
@@ -86,11 +86,11 @@ fun MatrixRain(modifier: Modifier = Modifier) {
                 val char = drop.chars[idx].toString()
 
                 val (color, fontSize) = when {
-                    i == 0 -> Color.White                                       to 13.sp
-                    i <= 2 -> Color(0xFF00E5FF).copy(alpha = 0.9f)              to 13.sp
-                    else   -> Color(0xFF00C853).copy(
-                        alpha = maxOf(0.04f, (1f - i.toFloat() / drop.len) * 0.7f)
-                    ) to 12.sp
+                    i == 0 -> Color.White to 14.sp
+                    i <= 2 -> Color(0xFF00E5FF).copy(alpha = 1f) to 14.sp
+                    else   -> Color(0xFF00E676).copy(
+                        alpha = maxOf(0.12f, (1f - i.toFloat() / drop.len) * 0.95f)
+                    ) to 13.sp
                 }
 
                 drawText(
