@@ -66,7 +66,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     private val _state = MutableStateFlow<UiState>(UiState.Idle)
     val state = _state.asStateFlow()
 
-    private val _input = MutableStateFlow("")
+    private val _input = MutableStateFlow(prefs.getString("last_input", "") ?: "")
     val input = _input.asStateFlow()
 
     private val _configs = MutableStateFlow<List<VpnConfig>>(emptyList())
@@ -79,7 +79,10 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         if (f == "ВСЕ") list else list.filter { it.protocol == f }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    fun setInput(v: String) { _input.value = v }
+    fun setInput(v: String) {
+        _input.value = v
+        prefs.edit().putString("last_input", v).apply()
+    }
     fun setFilter(f: String) { _filter.value = f }
 
     fun process() = viewModelScope.launch {

@@ -30,7 +30,7 @@ class MainActivity : ComponentActivity() {
 
             AppTheme(darkTheme = darkTheme) {
                 when (screen) {
-                    "settings" -> SettingsScreen(vm, onBack = { screen = "home" })
+                    "settings" -> SettingsScreen(vm, isDark = darkTheme, onBack = { screen = "home" })
                     else       -> HomeScreen(vm, isDark = darkTheme, onSettings = { screen = "settings" })
                 }
             }

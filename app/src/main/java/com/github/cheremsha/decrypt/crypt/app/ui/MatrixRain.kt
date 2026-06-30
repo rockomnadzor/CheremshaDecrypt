@@ -28,7 +28,7 @@ private data class DropSnap(
 )
 
 @Composable
-fun MatrixRain(modifier: Modifier = Modifier) {
+fun MatrixRain(modifier: Modifier = Modifier, isDark: Boolean = true) {
     val config  = LocalConfiguration.current
     val density = LocalDensity.current
     val W = with(density) { config.screenWidthDp.dp.toPx() }
@@ -76,6 +76,10 @@ fun MatrixRain(modifier: Modifier = Modifier) {
     val measurer = rememberTextMeasurer()
     val data     = snapshot
 
+    val headColor = if (isDark) Color.White else Color(0xFF003B40)
+    val nearColor = if (isDark) Color(0xFF00E5FF) else Color(0xFF00838F)
+    val tailColor = if (isDark) Color(0xFF00E676) else Color(0xFF1B5E20)
+
     Canvas(modifier) {
         data.forEach { drop ->
             for (i in 0 until drop.len) {
@@ -86,10 +90,10 @@ fun MatrixRain(modifier: Modifier = Modifier) {
                 val char = drop.chars[idx].toString()
 
                 val (color, fontSize) = when {
-                    i == 0 -> Color.White to 14.sp
-                    i <= 2 -> Color(0xFF00E5FF).copy(alpha = 1f) to 14.sp
-                    else   -> Color(0xFF00E676).copy(
-                        alpha = maxOf(0.12f, (1f - i.toFloat() / drop.len) * 0.95f)
+                    i == 0 -> headColor to 14.sp
+                    i <= 2 -> nearColor.copy(alpha = 1f) to 14.sp
+                    else   -> tailColor.copy(
+                        alpha = maxOf(0.22f, (1f - i.toFloat() / drop.len) * 0.95f)
                     ) to 13.sp
                 }
 

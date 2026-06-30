@@ -2,9 +2,12 @@ package com.github.cheremsha.decrypt.crypt.app.ui
 
 import android.content.Intent
 import android.net.Uri
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -12,71 +15,115 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.github.cheremsha.decrypt.crypt.app.R
 import com.github.cheremsha.decrypt.crypt.app.ui.theme.*
 
 private const val GITHUB_URL   = "https://github.com/rockomnadzor/CheremshaDecrypt"
 private const val TELEGRAM_URL = "https://t.me/cheremshaprojects"
+private const val APP_VERSION  = "v1.0"
 
 @Composable
-fun SettingsScreen(vm: MainViewModel, onBack: () -> Unit) {
+fun SettingsScreen(vm: MainViewModel, isDark: Boolean, onBack: () -> Unit) {
     val context = LocalContext.current
     val colors  = LocalAppColors.current
     val mode    by vm.themeMode.collectAsState()
 
-    Column(
-        Modifier
-            .fillMaxSize()
-            .background(colors.bg)
-            .statusBarsPadding()
-            .navigationBarsPadding()
-            .padding(horizontal = 16.dp)
-    ) {
-        Spacer(Modifier.height(8.dp))
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = onBack) {
-                Icon(Icons.Default.ArrowBack, null, tint = colors.textPrimary)
-            }
-            Spacer(Modifier.width(4.dp))
-            Text(
-                "НАСТРОЙКИ", color = colors.textPrimary, fontSize = 18.sp,
-                fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace, letterSpacing = 2.sp
-            )
-        }
+    Box(Modifier.fillMaxSize().background(colors.bg)) {
 
-        Spacer(Modifier.height(24.dp))
-        Text(
-            "ТЕМА", color = Cyan, fontSize = 12.sp, fontWeight = FontWeight.Bold,
-            fontFamily = FontFamily.Monospace, letterSpacing = 2.sp
+        MatrixRain(
+            modifier = Modifier.fillMaxSize().alpha(if (isDark) 0.42f else 0.50f),
+            isDark = isDark
         )
-        Spacer(Modifier.height(10.dp))
 
-        ThemeOption("Светлая", Icons.Default.LightMode, ThemeMode.LIGHT, mode, vm, colors)
-        Spacer(Modifier.height(8.dp))
-        ThemeOption("Тёмная", Icons.Default.DarkMode, ThemeMode.DARK, mode, vm, colors)
-        Spacer(Modifier.height(8.dp))
-        ThemeOption("Авто (системная)", Icons.Default.BrightnessAuto, ThemeMode.AUTO, mode, vm, colors)
+        Column(
+            Modifier
+                .fillMaxSize()
+                .statusBarsPadding()
+                .navigationBarsPadding()
+                .padding(horizontal = 16.dp)
+        ) {
+            Spacer(Modifier.height(8.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                IconButton(onClick = onBack) {
+                    Icon(Icons.Default.ArrowBack, null, tint = colors.textPrimary)
+                }
+                Spacer(Modifier.width(4.dp))
+                Text(
+                    "НАСТРОЙКИ", color = colors.textPrimary, fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace, letterSpacing = 2.sp
+                )
+            }
 
-        Spacer(Modifier.weight(1f))
+            Spacer(Modifier.height(24.dp))
+            Text(
+                "ТЕМА", color = Cyan, fontSize = 12.sp, fontWeight = FontWeight.Bold,
+                fontFamily = FontFamily.Monospace, letterSpacing = 2.sp
+            )
+            Spacer(Modifier.height(10.dp))
 
-        HorizontalDivider(color = colors.border)
-        Spacer(Modifier.height(14.dp))
+            ThemeOption("Светлая", Icons.Default.LightMode, ThemeMode.LIGHT, mode, vm, colors)
+            Spacer(Modifier.height(8.dp))
+            ThemeOption("Тёмная", Icons.Default.DarkMode, ThemeMode.DARK, mode, vm, colors)
+            Spacer(Modifier.height(8.dp))
+            ThemeOption("Авто (системная)", Icons.Default.BrightnessAuto, ThemeMode.AUTO, mode, vm, colors)
 
-        LinkRow("Исходный код", GITHUB_URL, Icons.Default.Code, Cyan, colors) {
-            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(GITHUB_URL)))
+            // ── Брендинг вместо пустоты ──────────────────────────
+            Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Box(
+                        Modifier
+                            .size(88.dp)
+                            .clip(CircleShape)
+                            .border(1.dp, Cyan.copy(alpha = 0.35f), CircleShape)
+                            .padding(4.dp)
+                            .clip(CircleShape)
+                    ) {
+                        Image(
+                            painter = painterResource(R.mipmap.ic_launcher),
+                            contentDescription = null,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    }
+                    Spacer(Modifier.height(14.dp))
+                    Text(
+                        "CHEREMSHA DECRYPT", color = colors.textPrimary, fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace, letterSpacing = 1.sp
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        APP_VERSION, color = Cyan, fontSize = 12.sp,
+                        fontFamily = FontFamily.Monospace
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        "RSA decrypt • VPN config parser",
+                        color = colors.textDim, fontSize = 11.sp, fontFamily = FontFamily.Monospace
+                    )
+                }
+            }
+
+            HorizontalDivider(color = colors.border)
+            Spacer(Modifier.height(14.dp))
+
+            LinkRow("Исходный код", GITHUB_URL, Icons.Default.Code, Cyan, colors) {
+                context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(GITHUB_URL)))
+            }
+            Spacer(Modifier.height(8.dp))
+            LinkRow("ТГК", TELEGRAM_URL, Icons.Default.Send, Purple, colors) {
+                context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(TELEGRAM_URL)))
+            }
+            Spacer(Modifier.height(20.dp))
         }
-        Spacer(Modifier.height(8.dp))
-        LinkRow("ТГК", TELEGRAM_URL, Icons.Default.Send, Purple, colors) {
-            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(TELEGRAM_URL)))
-        }
-        Spacer(Modifier.height(20.dp))
     }
 }
 
