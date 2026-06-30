@@ -50,7 +50,8 @@ fun HomeScreen(vm: MainViewModel, isDark: Boolean, onSettings: () -> Unit) {
         MatrixRain(
             modifier = Modifier
                 .fillMaxSize()
-                .alpha(if (isDark) 0.42f else 0.10f)
+                .alpha(if (isDark) 0.42f else 0.50f),
+            isDark = isDark
         )
 
         LazyColumn(

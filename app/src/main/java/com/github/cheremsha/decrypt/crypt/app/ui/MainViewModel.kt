@@ -49,7 +49,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         app.contentResolver, Settings.Secure.ANDROID_ID
     ) ?: STATIC_HWID
 
-    private val _useStaticHwid = MutableStateFlow(false)
+    private val _useStaticHwid = MutableStateFlow(true)
     val useStaticHwid: StateFlow<Boolean> = _useStaticHwid.asStateFlow()
 
     private val _customHwid = MutableStateFlow(deviceHwid)
