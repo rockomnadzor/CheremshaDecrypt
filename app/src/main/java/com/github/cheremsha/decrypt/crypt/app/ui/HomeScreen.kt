@@ -68,7 +68,7 @@ fun HomeScreen(vm: MainViewModel, isDark: Boolean, onSettings: () -> Unit) {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
                         Text(
-                            "CHEREMSHA", color = Cyan, fontSize = 22.sp,
+                            "ЧЕРЕМША", color = Cyan, fontSize = 22.sp,
                             fontWeight = FontWeight.ExtraBold, fontFamily = FontFamily.Monospace,
                             letterSpacing = 3.sp
                         )
