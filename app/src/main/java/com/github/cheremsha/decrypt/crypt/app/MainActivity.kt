@@ -39,6 +39,9 @@ class MainActivity : ComponentActivity() {
         // Разрешения на хранилище
         requestStoragePermissions()
 
+        // Инициализируем логгер
+        AppLogger.init(this)
+
         // Загружаем keytable для crypt5
         runCatching {
             val json = assets.open("keytable.json").bufferedReader().readText()

@@ -12,13 +12,16 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.github.cheremsha.decrypt.crypt.app.ui.theme.Cyan
+import com.github.cheremsha.decrypt.crypt.app.ui.theme.Green
 import com.github.cheremsha.decrypt.crypt.app.ui.theme.LocalAppColors
+import com.github.cheremsha.decrypt.crypt.app.ui.theme.RedProto
 import com.github.cheremsha.decrypt.crypt.app.util.AppLogger
+import com.github.cheremsha.decrypt.crypt.app.util.LogLevel
 
 @Composable
 fun LogsScreen(onBack: () -> Unit) {
@@ -56,6 +59,13 @@ fun LogsScreen(onBack: () -> Unit) {
                 letterSpacing = 2.sp,
                 modifier = Modifier.weight(1f)
             )
+            Text(
+                "${logs.size}",
+                color = colors.textDim,
+                fontSize = 11.sp,
+                fontFamily = FontFamily.Monospace
+            )
+            Spacer(Modifier.width(4.dp))
             IconButton(onClick = { AppLogger.clear() }) {
                 Icon(Icons.Default.DeleteOutline, "Очистить", tint = colors.textSecondary)
             }
@@ -71,28 +81,38 @@ fun LogsScreen(onBack: () -> Unit) {
             LazyColumn(
                 state = listState,
                 modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(8.dp),
-                verticalArrangement = Arrangement.spacedBy(2.dp)
+                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp),
+                verticalArrangement = Arrangement.spacedBy(1.dp)
             ) {
-                items(logs) { entry ->
-                    Row(Modifier.fillMaxWidth()) {
+                items(logs, key = { "${it.time}_${it.tag}_${it.message}" }) { entry ->
+                    val msgColor = when (entry.level) {
+                        LogLevel.ERROR   -> RedProto
+                        LogLevel.SUCCESS -> Green
+                        LogLevel.INFO    -> Color(0xFF888888)
+                    }
+                    Row(
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 1.dp)
+                    ) {
                         Text(
                             entry.time,
-                            color = colors.textDim,
-                            fontSize = 10.sp,
+                            color = Color(0xFF444444),
+                            fontSize = 9.sp,
                             fontFamily = FontFamily.Monospace,
-                            modifier = Modifier.width(56.dp)
+                            modifier = Modifier.width(52.dp)
                         )
                         Text(
-                            "[${entry.tag}] ",
-                            color = Cyan,
-                            fontSize = 10.sp,
-                            fontFamily = FontFamily.Monospace
+                            entry.tag.take(10).padEnd(10),
+                            color = Color(0xFF555555),
+                            fontSize = 9.sp,
+                            fontFamily = FontFamily.Monospace,
+                            modifier = Modifier.width(70.dp)
                         )
                         Text(
                             entry.message,
-                            color = colors.textSecondary,
-                            fontSize = 10.sp,
+                            color = msgColor,
+                            fontSize = 9.sp,
                             fontFamily = FontFamily.Monospace,
                             modifier = Modifier.weight(1f)
                         )

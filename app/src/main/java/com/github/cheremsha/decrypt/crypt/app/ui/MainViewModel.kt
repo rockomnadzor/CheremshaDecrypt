@@ -10,6 +10,8 @@ import com.github.cheremsha.decrypt.crypt.app.crypto.HappDecryptor
 import com.github.cheremsha.decrypt.crypt.app.network.SubFetcher
 import com.github.cheremsha.decrypt.crypt.app.parser.VpnConfig
 import com.github.cheremsha.decrypt.crypt.app.parser.VpnConfigParser
+import com.github.cheremsha.decrypt.crypt.app.util.AppLogger
+import com.github.cheremsha.decrypt.crypt.app.util.LogLevel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -107,8 +109,12 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
             _configs.value = result
             _state.value   = UiState.Success(url, result.size)
+            AppLogger.log("DECRYPT", "Найдено ${result.size} конфигов: $url", LogLevel.SUCCESS)
 
-        }.onFailure { _state.value = UiState.Error(it.message ?: "Неизвестная ошибка") }
+        }.onFailure {
+            _state.value = UiState.Error(it.message ?: "Неизвестная ошибка")
+            AppLogger.log("DECRYPT", "Ошибка: ${it.message}", LogLevel.ERROR)
+        }
     }
 
     fun copyAll() {
