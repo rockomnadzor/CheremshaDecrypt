@@ -23,7 +23,12 @@ enum class ThemeMode { LIGHT, DARK, AUTO }
 sealed class UiState {
     object Idle : UiState()
     data class Working(val step: String) : UiState()
-    data class Success(val url: String, val count: Int, val rawSubscription: String? = null) : UiState()
+    data class Success(
+        val url: String, 
+        val count: Int, 
+        val rawSubscription: String? = null,
+        val isDirectSubscription: Boolean = false
+    ) : UiState()
     data class Error(val msg: String) : UiState()
 }
 
@@ -35,7 +40,6 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     private val prefs = app.getSharedPreferences("cheremsha_prefs", 0)
 
-    // ── Тема ──────────────────────────────────────────────
     private val _themeMode = MutableStateFlow(
         ThemeMode.valueOf(prefs.getString("theme_mode", ThemeMode.DARK.name) ?: ThemeMode.DARK.name)
     )
@@ -46,7 +50,6 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         prefs.edit().putString("theme_mode", mode.name).apply()
     }
 
-    // ── HWID ──────────────────────────────────────────────
     val deviceHwid: String = Settings.Secure.getString(
         app.contentResolver, Settings.Secure.ANDROID_ID
     ) ?: STATIC_HWID                                                                                                      
@@ -63,7 +66,6 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     fun setUseStaticHwid(v: Boolean) { _useStaticHwid.value = v }
     fun setCustomHwid(v: String)     { _customHwid.value = v }
 
-    // ── Основное ──────────────────────────────────────────
     private val _state = MutableStateFlow<UiState>(UiState.Idle)
     val state = _state.asStateFlow()
 
@@ -90,40 +92,37 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         _state.value   = UiState.Working("Инициализация...")
         _configs.value = emptyList()
         val hwid = effectiveHwid.value
-        var decryptedUrl: String? = null
 
         runCatching {
             val raw = _input.value.trim()
 
-            val url = if (raw.startsWith("happ://")) {
+            val decryptedUrl = if (raw.startsWith("happ://")) {
                 _state.value = UiState.Working("Дешифровка...")
-                val result = HappDecryptor.decrypt(raw).getOrThrow()
-                decryptedUrl = result
-                result
+                HappDecryptor.decrypt(raw).getOrThrow()
             } else raw
 
-            val content = if (url.startsWith("http")) {
+            val content = if (decryptedUrl.startsWith("http")) {
                 _state.value = UiState.Working("Загрузка подписки...")
-                SubFetcher.fetch(url, hwid)
-            } else url                                     
+                SubFetcher.fetch(decryptedUrl, hwid)
+            } else decryptedUrl
 
-            _state.value = UiState.Working("Парсинг конфигов...")
-            val result = withContext(Dispatchers.Default) { VpnConfigParser.parse(content) }
+            val parsed = withContext(Dispatchers.Default) { VpnConfigParser.parse(content) }
 
-            _configs.value = result
+            _configs.value = parsed
 
-            val successState = UiState.Success(
-                url = url,
-                count = result.size,
-                rawSubscription = content.takeIf { result.isEmpty() } // если парсер ничего не нашёл — показываем сырую подписку
+            val isDirect = parsed.isEmpty() && content.startsWith("http")
+
+            _state.value = UiState.Success(
+                url = decryptedUrl,
+                count = parsed.size,
+                rawSubscription = if (isDirect) content else null,
+                isDirectSubscription = isDirect
             )
-            _state.value = successState
 
-            AppLogger.log("DECRYPT", "Найдено ${result.size} конфигов", LogLevel.SUCCESS)
+            AppLogger.log("DECRYPT", "Найдено ${parsed.size} конфигов", LogLevel.SUCCESS)
 
         }.onFailure {
             _state.value = UiState.Error(it.message ?: "Неизвестная ошибка")
-            AppLogger.log("DECRYPT", "Ошибка: ${it.message}", LogLevel.ERROR)
         }
     }
 
@@ -134,30 +133,12 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             .setPrimaryClip(ClipData.newPlainText("VPN Configs", text))
     }
 
-    /** Копировать сырую подписку */
     fun copySubscription() {
         val app = getApplication<Application>()
-        val text = (_state.value as? UiState.Success)?.rawSubscription ?: return
+        val success = _state.value as? UiState.Success ?: return
+        val text = success.rawSubscription ?: success.url
         app.getSystemService(ClipboardManager::class.java)
             .setPrimaryClip(ClipData.newPlainText("Subscription", text))
         AppLogger.log("COPY", "Подписка скопирована", LogLevel.SUCCESS)
     }
-
-    fun saveToFile(onDone: (String) -> Unit) = viewModelScope.launch(Dispatchers.IO) {
-        runCatching {
-            val dir = File(
-                android.os.Environment.getExternalStorageDirectory(), "Decrypts/TXT"
-            ).also { it.mkdirs() }
-            val domain = try {
-                java.net.URI((_state.value as? UiState.Success)?.url ?: "unknown").host
-                    ?.replace(":", "_") ?: "unknown"
-            } catch (_: Exception) { "unknown" }
-            val file = File(dir, "$domain.txt")
-            file.writeText(_configs.value.joinToString("\n") { it.rawLink })
-            withContext(Dispatchers.Main) { onDone(file.absolutePath) }
-        }
-    }
-
-    val protocols: List<String> get() =
-        listOf("ВСЕ") + _configs.value.map { it.protocol }.distinct().sorted()
 }
