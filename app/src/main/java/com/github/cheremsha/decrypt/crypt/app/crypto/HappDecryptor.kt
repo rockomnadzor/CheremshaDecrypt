@@ -8,6 +8,12 @@ import javax.crypto.Cipher
 
 class HappDecryptor(private val context: Context) {
 
+    companion object {
+        fun decrypt(link: String): Result<String> = runCatching {
+            HappDecryptor(android.app.Application()).decrypt(link)
+        }
+    }
+
     fun decrypt(link: String): String {
         val clean = if (link.startsWith("happ://")) link.removePrefix("happ://") else link
 
@@ -17,11 +23,11 @@ class HappDecryptor(private val context: Context) {
                 clean.startsWith("crypt2/") -> rsaDecrypt(1, clean.removePrefix("crypt2/"))
                 clean.startsWith("crypt3/") -> rsaDecrypt(2, clean.removePrefix("crypt3/"))
                 clean.startsWith("crypt4/") -> rsaDecrypt(3, clean.removePrefix("crypt4/"))
-                clean.startsWith("crypt5/") -> "crypt5 пока не поддерживается (требует нативный эмулятор)"
-                else -> "Неизвестный формат ссылки"
+                clean.startsWith("crypt5/") -> "crypt5 пока не поддерживается"
+                else -> "Неизвестный формат"
             }
         } catch (e: Exception) {
-            "Ошибка расшифровки: ${e.message}"
+            "Ошибка: ${e.message}"
         }
     }
 
@@ -39,6 +45,6 @@ class HappDecryptor(private val context: Context) {
         val encrypted = Base64.decode(payload, Base64.URL_SAFE or Base64.NO_PADDING)
         val decrypted = cipher.doFinal(encrypted)
 
-        return String(decrypted, Charsets.UTF_8)
+        return String(decrypted, Charsets.UTF_8).trim()
     }
 }
