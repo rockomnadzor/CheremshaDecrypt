@@ -23,12 +23,13 @@ enum class ThemeMode { LIGHT, DARK, AUTO }
 sealed class UiState {
     object Idle : UiState()
     data class Working(val step: String) : UiState()
-    data class Success(
-        val url: String, 
-        val count: Int, 
-        val rawSubscription: String? = null,
-        val isDirectSubscription: Boolean = false
-    ) : UiState()
+    
+    // Для happ://crypt — специальный режим
+    data class DirectSubscription(val subscriptionUrl: String) : UiState()
+    
+    // Обычный режим с конфигами
+    data class Success(val url: String, val configs: List<VpnConfig>) : UiState()
+    
     data class Error(val msg: String) : UiState()
 }
 
@@ -52,7 +53,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     val deviceHwid: String = Settings.Secure.getString(
         app.contentResolver, Settings.Secure.ANDROID_ID
-    ) ?: STATIC_HWID                                                                                                      
+    ) ?: STATIC_HWID
 
     private val _useStaticHwid = MutableStateFlow(true)
     val useStaticHwid: StateFlow<Boolean> = _useStaticHwid.asStateFlow()                                              
@@ -89,41 +90,51 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     fun setFilter(f: String) { _filter.value = f }
 
     fun process() = viewModelScope.launch {
-        _state.value   = UiState.Working("Инициализация...")
+        _state.value = UiState.Working("Инициализация...")
         _configs.value = emptyList()
+
         val hwid = effectiveHwid.value
+        val raw = _input.value.trim()
 
         runCatching {
-            val raw = _input.value.trim()
-
             val decryptedUrl = if (raw.startsWith("happ://")) {
                 _state.value = UiState.Working("Дешифровка...")
                 HappDecryptor.decrypt(raw).getOrThrow()
             } else raw
 
+            if (raw.startsWith("happ://")) {
+                // Специальный режим для happ://
+                _state.value = UiState.DirectSubscription(decryptedUrl)
+                AppLogger.log("DECRYPT", "Расшифрована подписка: $decryptedUrl", LogLevel.SUCCESS)
+                return@runCatching
+            }
+
+            // Обычный режим
             val content = if (decryptedUrl.startsWith("http")) {
-                _state.value = UiState.Working("Загрузка подписки...")
+                _state.value = UiState.Working("Загрузка...")
                 SubFetcher.fetch(decryptedUrl, hwid)
             } else decryptedUrl
 
             val parsed = withContext(Dispatchers.Default) { VpnConfigParser.parse(content) }
 
             _configs.value = parsed
-
-            val isDirect = parsed.isEmpty() && content.startsWith("http")
-
-            _state.value = UiState.Success(
-                url = decryptedUrl,
-                count = parsed.size,
-                rawSubscription = if (isDirect) content else null,
-                isDirectSubscription = isDirect
-            )
-
-            AppLogger.log("DECRYPT", "Найдено ${parsed.size} конфигов", LogLevel.SUCCESS)
+            _state.value = UiState.Success(decryptedUrl, parsed)
 
         }.onFailure {
             _state.value = UiState.Error(it.message ?: "Неизвестная ошибка")
         }
+    }
+
+    fun copySubscription() {
+        val app = getApplication<Application>()
+        val current = _state.value
+        val text = when (current) {
+            is UiState.DirectSubscription -> current.subscriptionUrl
+            is UiState.Success -> current.url
+            else -> return
+        }
+        app.getSystemService(ClipboardManager::class.java)
+            .setPrimaryClip(ClipData.newPlainText("Subscription", text))
     }
 
     fun copyAll() {
@@ -131,14 +142,5 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         val text = _configs.value.joinToString("\n") { it.rawLink }
         app.getSystemService(ClipboardManager::class.java)
             .setPrimaryClip(ClipData.newPlainText("VPN Configs", text))
-    }
-
-    fun copySubscription() {
-        val app = getApplication<Application>()
-        val success = _state.value as? UiState.Success ?: return
-        val text = success.rawSubscription ?: success.url
-        app.getSystemService(ClipboardManager::class.java)
-            .setPrimaryClip(ClipData.newPlainText("Subscription", text))
-        AppLogger.log("COPY", "Подписка скопирована", LogLevel.SUCCESS)
     }
 }
