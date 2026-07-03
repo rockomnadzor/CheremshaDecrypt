@@ -29,8 +29,8 @@ sealed class UiState {
 
 class MainViewModel(app: Application) : AndroidViewModel(app) {
 
-    companion object {
-        const val STATIC_HWID = "a67d61b1c88dc678"
+    companion object {                                             
+        const val STATIC_HWID = "a67d61b1c88dc678"             
     }
 
     private val prefs = app.getSharedPreferences("cheremsha_prefs", 0)
@@ -52,8 +52,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     ) ?: STATIC_HWID
 
     private val _useStaticHwid = MutableStateFlow(true)
-    val useStaticHwid: StateFlow<Boolean> = _useStaticHwid.asStateFlow()
-
+    val useStaticHwid: StateFlow<Boolean> = _useStaticHwid.asStateFlow()                                              
     private val _customHwid = MutableStateFlow(deviceHwid)
     val customHwid: StateFlow<String> = _customHwid.asStateFlow()
 
@@ -96,13 +95,13 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
             val url = if (raw.startsWith("happ://")) {
                 _state.value = UiState.Working("Дешифровка RSA...")
-                HappDecryptor.decrypt(raw).getOrThrow().url
+                HappDecryptor.decrypt(raw).getOrThrow()
             } else raw
 
             val content = if (url.startsWith("http")) {
                 _state.value = UiState.Working("Загрузка подписки...")
                 SubFetcher.fetch(url, hwid)
-            } else url
+            } else url                                     
 
             _state.value = UiState.Working("Парсинг конфигов...")
             val result = withContext(Dispatchers.Default) { VpnConfigParser.parse(content) }
