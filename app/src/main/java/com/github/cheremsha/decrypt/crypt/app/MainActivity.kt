@@ -24,7 +24,6 @@ import com.github.cheremsha.decrypt.crypt.app.ui.SettingsScreen
 import com.github.cheremsha.decrypt.crypt.app.ui.ThemeMode
 import com.github.cheremsha.decrypt.crypt.app.ui.theme.AppTheme
 import com.github.cheremsha.decrypt.crypt.app.util.AppLogger
-import su.happ.proxyutility.util.protection.EncryptedSubUrlHelper
 
 class MainActivity : ComponentActivity() {
 
@@ -36,20 +35,10 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
-        // Разрешения на хранилище
         requestStoragePermissions()
 
-        // Инициализируем логгер
         AppLogger.init(this)
-
-        // Загружаем keytable для crypt5
-        runCatching {
-            val json = assets.open("keytable.json").bufferedReader().readText()
-            EncryptedSubUrlHelper.init(json)
-            AppLogger.log("INIT", "keytable.json загружен")
-        }.onFailure {
-            AppLogger.log("INIT", "Ошибка keytable: ${it.message}")
-        }
+        AppLogger.log("INIT", "Приложение запущено")
 
         setContent {
             val vm: MainViewModel = viewModel()
@@ -62,7 +51,6 @@ class MainActivity : ComponentActivity() {
             }
             var screen by remember { mutableStateOf("home") }
 
-            // Кнопка назад: логи → настройки, настройки → меню
             BackHandler(enabled = screen != "home") {
                 screen = when (screen) {
                     "logs"     -> "settings"

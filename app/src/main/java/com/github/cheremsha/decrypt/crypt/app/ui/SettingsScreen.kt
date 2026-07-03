@@ -26,7 +26,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.github.cheremsha.decrypt.crypt.app.R
-import com.github.cheremsha.decrypt.crypt.app.crypto.UnicornBridge
 import com.github.cheremsha.decrypt.crypt.app.ui.theme.*
 
 private const val GITHUB_URL   = "https://github.com/rockomnadzor/CheremshaDecrypt"
@@ -130,32 +129,6 @@ fun SettingsScreen(vm: MainViewModel, isDark: Boolean, onBack: () -> Unit, onLog
             Icon(Icons.Default.ChevronRight, null, tint = colors.textDim, modifier = Modifier.size(18.dp))
         }
 
-        Spacer(Modifier.height(8.dp))
-        var unicornResult by remember { mutableStateOf<String?>(null) }
-        Row(
-            Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(10.dp))
-                .background(colors.cardBg)
-                .clickable {
-                    unicornResult = try {
-                        "OK: Unicorn v" + UnicornBridge.checkUnicornVersion()
-                    } catch (e: Throwable) {
-                        "FAIL: " + e.message
-                    }
-                }
-                .padding(horizontal = 14.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Icon(Icons.Default.BugReport, null, tint = Purple, modifier = Modifier.size(20.dp))
-            Spacer(Modifier.width(12.dp))
-            Column(Modifier.weight(1f)) {
-                Text("Test Unicorn", color = colors.textPrimary, fontSize = 14.sp)
-                unicornResult?.let {
-                    Text(it, color = if (it.startsWith("OK")) Green else RedProto, fontSize = 11.sp)
-                }
-            }
-        }
 
         HorizontalDivider(color = colors.border)
             Spacer(Modifier.height(14.dp))

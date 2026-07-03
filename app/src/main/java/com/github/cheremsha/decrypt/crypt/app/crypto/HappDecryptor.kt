@@ -16,10 +16,7 @@ object HappDecryptor {
         val path = happUrl.removePrefix("happ://")
 
         when {
-            path.startsWith("crypt5/") -> {
-                val url = Crypt5Pipeline.decrypt(path.removePrefix("crypt5/"))
-                DecryptResult(url, keyIndex = 5, keyBits = 0)
-            }
+            path.startsWith("crypt5/") -> error("crypt5 пока не поддерживается")
             path.startsWith("crypt4/") -> decryptRsa(3, path.removePrefix("crypt4/"))
             path.startsWith("crypt3/") -> decryptRsa(2, path.removePrefix("crypt3/"))
             path.startsWith("crypt2/") -> decryptRsa(1, path.removePrefix("crypt2/"))
