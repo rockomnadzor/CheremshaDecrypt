@@ -86,7 +86,7 @@ fun HomeScreen(vm: MainViewModel, isDark: Boolean, onSettings: () -> Unit) {
                 }
             }
 
-            // HWID Card (оставил без изменений)
+            // HWID Card
             item {
                 Card(colors = CardDefaults.cardColors(containerColor = colors.cardBg), shape = RoundedCornerShape(12.dp)) {
                     Column(Modifier.padding(12.dp)) {
@@ -111,7 +111,7 @@ fun HomeScreen(vm: MainViewModel, isDark: Boolean, onSettings: () -> Unit) {
                 }
             }
 
-            // Input card (без изменений)
+            // Input card
             item {
                 val isLoading = state is UiState.Working
                 Card(colors = CardDefaults.cardColors(containerColor = colors.cardBg), shape = RoundedCornerShape(14.dp)) {
@@ -154,7 +154,7 @@ fun HomeScreen(vm: MainViewModel, isDark: Boolean, onSettings: () -> Unit) {
                 }
             }
 
-            // ── Status / Results ─────────────────────────────────
+            // Status
             when (val s = state) {
                 is UiState.Error -> item {
                     Card(colors = CardDefaults.cardColors(containerColor = Color(0xCC150505)), shape = RoundedCornerShape(10.dp)) {
@@ -175,7 +175,7 @@ fun HomeScreen(vm: MainViewModel, isDark: Boolean, onSettings: () -> Unit) {
                                 Text("Найдена подписка!", color = Green, fontSize = 16.sp, fontWeight = FontWeight.Bold)
                             }
                             Spacer(Modifier.height(8.dp))
-                            Text(s.subscriptionUrl, color = Color(0xFF88FF88), fontSize = 12.sp, fontFamily = FontFamily.Monospace, maxLines = 3, overflow = TextOverflow.Ellipsis)
+                            Text(s.subscriptionUrl, color = Color(0xFF88FF88), fontSize = 12.sp, fontFamily = FontFamily.Monospace, maxLines = 4, overflow = TextOverflow.Ellipsis)
                             Spacer(Modifier.height(12.dp))
                             Button(onClick = { vm.copySubscription(); Toast.makeText(context, "Подписка скопирована", Toast.LENGTH_SHORT).show() }, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = Cyan)) {
                                 Icon(Icons.Default.ContentCopy, null, Modifier.size(16.dp))
@@ -202,7 +202,7 @@ fun HomeScreen(vm: MainViewModel, isDark: Boolean, onSettings: () -> Unit) {
                 else -> Unit
             }
 
-            // Results (конфиги)
+            // Configs list
             if (configs.isNotEmpty()) {
                 item {
                     LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
