@@ -32,6 +32,16 @@ class HappDecryptor(private val context: Context) {
     }
 
     private fun rsaDecrypt(keyIndex: Int, payload: String): String {
+        var data = payload.trim()
+
+        // Фиксим base64 для Android
+        data = data.replace("-", "+").replace("_", "/")
+
+        // Добавляем padding если нужно
+        while (data.length % 4 != 0) {
+            data += "="
+        }
+
         val keyB64 = Keys.PKCS1_KEYS.getOrNull(keyIndex) ?: return "Ключ не найден"
         val keyBytes = Base64.decode(keyB64, Base64.DEFAULT)
 
@@ -42,7 +52,7 @@ class HappDecryptor(private val context: Context) {
         val cipher = Cipher.getInstance("RSA/ECB/PKCS1Padding")
         cipher.init(Cipher.DECRYPT_MODE, privateKey)
 
-        val encrypted = Base64.decode(payload, Base64.URL_SAFE or Base64.NO_PADDING)
+        val encrypted = Base64.decode(data, Base64.DEFAULT)
         val decrypted = cipher.doFinal(encrypted)
 
         return String(decrypted, Charsets.UTF_8).trim()
