@@ -21,10 +21,10 @@ import java.io.File
 enum class ThemeMode { LIGHT, DARK, AUTO }
 
 sealed class UiState {
-    object Idle                                         : UiState()
-    data class Working(val step: String)                : UiState()
-    data class Success(val url: String, val count: Int) : UiState()
-    data class Error(val msg: String)                   : UiState()
+    object Idle : UiState()
+    data class Working(val step: String) : UiState()
+    data class Success(val url: String, val count: Int, val rawSubscription: String? = null) : UiState()
+    data class Error(val msg: String) : UiState()
 }
 
 class MainViewModel(app: Application) : AndroidViewModel(app) {
@@ -49,7 +49,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     // ── HWID ──────────────────────────────────────────────
     val deviceHwid: String = Settings.Secure.getString(
         app.contentResolver, Settings.Secure.ANDROID_ID
-    ) ?: STATIC_HWID
+    ) ?: STATIC_HWID                                                                                                      
 
     private val _useStaticHwid = MutableStateFlow(true)
     val useStaticHwid: StateFlow<Boolean> = _useStaticHwid.asStateFlow()                                              
@@ -90,12 +90,16 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         _state.value   = UiState.Working("Инициализация...")
         _configs.value = emptyList()
         val hwid = effectiveHwid.value
+        var decryptedUrl: String? = null
+
         runCatching {
             val raw = _input.value.trim()
 
             val url = if (raw.startsWith("happ://")) {
-                _state.value = UiState.Working("Дешифровка RSA...")
-                HappDecryptor.decrypt(raw).getOrThrow()
+                _state.value = UiState.Working("Дешифровка...")
+                val result = HappDecryptor.decrypt(raw).getOrThrow()
+                decryptedUrl = result
+                result
             } else raw
 
             val content = if (url.startsWith("http")) {
@@ -107,8 +111,15 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             val result = withContext(Dispatchers.Default) { VpnConfigParser.parse(content) }
 
             _configs.value = result
-            _state.value   = UiState.Success(url, result.size)
-            AppLogger.log("DECRYPT", "Найдено ${result.size} конфигов: $url", LogLevel.SUCCESS)
+
+            val successState = UiState.Success(
+                url = url,
+                count = result.size,
+                rawSubscription = content.takeIf { result.isEmpty() } // если парсер ничего не нашёл — показываем сырую подписку
+            )
+            _state.value = successState
+
+            AppLogger.log("DECRYPT", "Найдено ${result.size} конфигов", LogLevel.SUCCESS)
 
         }.onFailure {
             _state.value = UiState.Error(it.message ?: "Неизвестная ошибка")
@@ -121,6 +132,15 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         val text = _configs.value.joinToString("\n") { it.rawLink }
         app.getSystemService(ClipboardManager::class.java)
             .setPrimaryClip(ClipData.newPlainText("VPN Configs", text))
+    }
+
+    /** Копировать сырую подписку */
+    fun copySubscription() {
+        val app = getApplication<Application>()
+        val text = (_state.value as? UiState.Success)?.rawSubscription ?: return
+        app.getSystemService(ClipboardManager::class.java)
+            .setPrimaryClip(ClipData.newPlainText("Subscription", text))
+        AppLogger.log("COPY", "Подписка скопирована", LogLevel.SUCCESS)
     }
 
     fun saveToFile(onDone: (String) -> Unit) = viewModelScope.launch(Dispatchers.IO) {
