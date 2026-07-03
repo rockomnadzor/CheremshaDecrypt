@@ -1,81 +1,44 @@
 package com.github.cheremsha.decrypt.crypt.app.crypto
 
+import android.content.Context
 import android.util.Base64
-import java.io.ByteArrayOutputStream
 import java.security.KeyFactory
-import java.security.interfaces.RSAPrivateKey
 import java.security.spec.PKCS8EncodedKeySpec
 import javax.crypto.Cipher
 
-object HappDecryptor {
+class HappDecryptor(private val context: Context) {
 
-    data class DecryptResult(val url: String, val keyIndex: Int, val keyBits: Int)
+    fun decrypt(link: String): String {
+        val clean = if (link.startsWith("happ://")) link.removePrefix("happ://") else link
 
-    fun decrypt(happUrl: String): Result<DecryptResult> = runCatching {
-        require(happUrl.startsWith("happ://")) { "Не является happ:// ссылкой" }
-        val path = happUrl.removePrefix("happ://")
-
-        when {
-            path.startsWith("crypt5/") -> error("crypt5 пока не поддерживается")
-            path.startsWith("crypt4/") -> decryptRsa(3, path.removePrefix("crypt4/"))
-            path.startsWith("crypt3/") -> decryptRsa(2, path.removePrefix("crypt3/"))
-            path.startsWith("crypt2/") -> decryptRsa(1, path.removePrefix("crypt2/"))
-            path.startsWith("crypt1/") -> decryptRsa(0, path.removePrefix("crypt1/"))
-            path.startsWith("crypt/")  -> decryptRsa(0, path.removePrefix("crypt/"))
-            else -> error("Неизвестный формат crypt: $happUrl")
+        return try {
+            when {
+                clean.startsWith("crypt/") -> rsaDecrypt(0, clean.removePrefix("crypt/"))
+                clean.startsWith("crypt2/") -> rsaDecrypt(1, clean.removePrefix("crypt2/"))
+                clean.startsWith("crypt3/") -> rsaDecrypt(2, clean.removePrefix("crypt3/"))
+                clean.startsWith("crypt4/") -> rsaDecrypt(3, clean.removePrefix("crypt4/"))
+                clean.startsWith("crypt5/") -> "crypt5 пока не поддерживается (требует нативный эмулятор)"
+                else -> "Неизвестный формат ссылки"
+            }
+        } catch (e: Exception) {
+            "Ошибка расшифровки: ${e.message}"
         }
     }
 
-    private fun decryptRsa(keyIdx: Int, payload: String): DecryptResult {
-        require(keyIdx in Keys.RSA_KEYS.indices) { "Неверный индекс ключа: $keyIdx" }
+    private fun rsaDecrypt(keyIndex: Int, payload: String): String {
+        val keyB64 = Keys.PKCS1_KEYS.getOrNull(keyIndex) ?: return "Ключ не найден"
+        val keyBytes = Base64.decode(keyB64, Base64.DEFAULT)
 
-        val pkcs1 = Base64.decode(Keys.RSA_KEYS[keyIdx], Base64.DEFAULT)
-        val pkcs8 = pkcs1ToPkcs8(pkcs1)
-        val privateKey = KeyFactory.getInstance("RSA")
-            .generatePrivate(PKCS8EncodedKeySpec(pkcs8))
-        val keySize = ((privateKey as RSAPrivateKey).modulus.bitLength() + 7) / 8
+        val keySpec = PKCS8EncodedKeySpec(keyBytes)
+        val kf = KeyFactory.getInstance("RSA")
+        val privateKey = kf.generatePrivate(keySpec)
 
-        val safe = payload.replace('-', '+').replace('_', '/')
-        val padded = safe + "=".repeat((4 - safe.length % 4) % 4)
-        val cipherBytes = Base64.decode(padded, Base64.DEFAULT)
+        val cipher = Cipher.getInstance("RSA/ECB/PKCS1Padding")
+        cipher.init(Cipher.DECRYPT_MODE, privateKey)
 
-        require(cipherBytes.isNotEmpty()) { "Payload пустой — URL обрезан!" }
-        require(cipherBytes.size % keySize == 0) {
-            "URL ОБРЕЗАН! Не хватает ~${keySize - cipherBytes.size % keySize} байт"
-        }
+        val encrypted = Base64.decode(payload, Base64.URL_SAFE or Base64.NO_PADDING)
+        val decrypted = cipher.doFinal(encrypted)
 
-        val out = ByteArrayOutputStream()
-        for (offset in cipherBytes.indices step keySize) {
-            val cipher = Cipher.getInstance("RSA/ECB/PKCS1Padding")
-            cipher.init(Cipher.DECRYPT_MODE, privateKey)
-            out.write(cipher.doFinal(cipherBytes, offset, keySize))
-        }
-
-        val plaintext = out.toByteArray()
-            .dropWhile { it == 0.toByte() }
-            .toByteArray()
-            .toString(Charsets.UTF_8)
-            .trim()
-
-        require(plaintext.isNotEmpty()) { "Результат дешифровки пуст" }
-        val url = if (plaintext.startsWith("http")) plaintext else "https://$plaintext"
-        return DecryptResult(url, keyIdx + 1, keySize * 8)
-    }
-
-    private fun pkcs1ToPkcs8(pkcs1: ByteArray): ByteArray {
-        fun encLen(n: Int): ByteArray = when {
-            n < 0x80 -> byteArrayOf(n.toByte())
-            n < 0x100 -> byteArrayOf(0x81.toByte(), n.toByte())
-            else -> byteArrayOf(0x82.toByte(), (n ushr 8 and 0xFF).toByte(), (n and 0xFF).toByte())
-        }
-        fun seq(v: ByteArray) = byteArrayOf(0x30) + encLen(v.size) + v
-        fun oct(v: ByteArray) = byteArrayOf(0x04) + encLen(v.size) + v
-
-        val algId = seq(byteArrayOf(
-            0x06, 0x09,
-            0x2A, 0x86.toByte(), 0x48, 0x86.toByte(), 0xF7.toByte(), 0x0D, 0x01, 0x01, 0x01,
-            0x05, 0x00
-        ))
-        return seq(byteArrayOf(0x02, 0x01, 0x00) + algId + oct(pkcs1))
+        return String(decrypted, Charsets.UTF_8)
     }
 }
