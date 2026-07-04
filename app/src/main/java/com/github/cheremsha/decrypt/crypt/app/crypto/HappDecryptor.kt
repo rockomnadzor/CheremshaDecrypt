@@ -15,7 +15,7 @@ object HappDecryptor {
             clean.startsWith("crypt2/") -> rsaDecrypt(1, clean.removePrefix("crypt2/"))
             clean.startsWith("crypt3/") -> rsaDecrypt(2, clean.removePrefix("crypt3/"))
             clean.startsWith("crypt4/") -> rsaDecrypt(3, clean.removePrefix("crypt4/"))
-            clean.startsWith("crypt5/") -> error("crypt5 пока не поддерживается")
+            clean.startsWith("crypt5/") -> Crypt5Pipeline.decrypt(clean.removePrefix("crypt5/"))
             else -> error("Неизвестный формат")
         }
     }

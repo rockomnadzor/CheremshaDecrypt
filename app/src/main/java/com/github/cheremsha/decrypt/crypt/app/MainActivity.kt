@@ -24,6 +24,8 @@ import com.github.cheremsha.decrypt.crypt.app.ui.SettingsScreen
 import com.github.cheremsha.decrypt.crypt.app.ui.ThemeMode
 import com.github.cheremsha.decrypt.crypt.app.ui.theme.AppTheme
 import com.github.cheremsha.decrypt.crypt.app.util.AppLogger
+import com.github.cheremsha.decrypt.crypt.app.util.LogLevel
+import su.happ.proxyutility.util.protection.EncryptedSubUrlHelper
 
 class MainActivity : ComponentActivity() {
 
@@ -39,6 +41,14 @@ class MainActivity : ComponentActivity() {
 
         AppLogger.init(this)
         AppLogger.log("INIT", "Приложение запущено")
+
+        runCatching {
+            val json = assets.open("keytable.json").bufferedReader().readText()
+            EncryptedSubUrlHelper.init(json)
+            AppLogger.log("INIT", "keytable.json загружен (${json.length} байт)", LogLevel.SUCCESS)
+        }.onFailure {
+            AppLogger.log("INIT", "Ошибка загрузки keytable: ${it.message}", LogLevel.ERROR)
+        }
 
         setContent {
             val vm: MainViewModel = viewModel()
