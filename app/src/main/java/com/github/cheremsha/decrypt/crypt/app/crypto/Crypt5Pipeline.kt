@@ -1,25 +1,24 @@
 package com.github.cheremsha.decrypt.crypt.app.crypto
 
+import android.content.Context
 import android.util.Base64
-import su.happ.proxyutility.util.ErrorCodeJNIWrapper
 
-/**
- * Полный пайплайн crypt5: shuffle -> native .so (JNI) -> swapPairs -> base64.
- * Точный порт decryptCrypt5() из decrypt.js, но БЕЗ эмуляции —
- * .so выполняется нативно на ARM64.
- */
 object Crypt5Pipeline {
 
-    fun decrypt(payload: String): String {
-        if (!ErrorCodeJNIWrapper.ensureLoaded()) {
-            error("crypt5 доступен только на ARM64-устройствах")
+    private var soBytes: ByteArray? = null
+
+    fun init(context: Context) {
+        if (soBytes == null) {
+            soBytes = context.assets.open("liberror-code.so").use { it.readBytes() }
         }
+    }
 
-        val nativeIn = m4831f(payload)
-        val inputBytes = nativeIn.toByteArray(Charsets.UTF_8)
+    fun decrypt(payload: String): String {
+        val so = soBytes ?: error("Crypt5Pipeline не инициализирован")
 
-        val outputBytes = ErrorCodeJNIWrapper().jniGetErrorMessageFromString2(inputBytes)
-        require(outputBytes.isNotEmpty()) { "crypt5: пустой результат от native lib" }
+        val nativeIn = m4831f(payload).toByteArray(Charsets.UTF_8)
+        val outputBytes = UnicornBridge.decryptCrypt5(so, nativeIn)
+        require(outputBytes.isNotEmpty()) { "crypt5: пустой результат от эмулятора" }
 
         val obfuscated = String(outputBytes, Charsets.UTF_8)
         val swapped = swapPairs(obfuscated)

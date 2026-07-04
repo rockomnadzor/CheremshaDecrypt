@@ -25,6 +25,7 @@ import com.github.cheremsha.decrypt.crypt.app.ui.ThemeMode
 import com.github.cheremsha.decrypt.crypt.app.ui.theme.AppTheme
 import com.github.cheremsha.decrypt.crypt.app.util.AppLogger
 import com.github.cheremsha.decrypt.crypt.app.util.LogLevel
+import com.github.cheremsha.decrypt.crypt.app.crypto.Crypt5Pipeline
 import su.happ.proxyutility.util.protection.EncryptedSubUrlHelper
 
 class MainActivity : ComponentActivity() {
