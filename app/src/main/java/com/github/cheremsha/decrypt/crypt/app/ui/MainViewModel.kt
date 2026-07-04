@@ -143,4 +143,22 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         app.getSystemService(ClipboardManager::class.java)
             .setPrimaryClip(ClipData.newPlainText("VPN Configs", text))
     }
+
+    fun saveToFile(onDone: (String) -> Unit) = viewModelScope.launch(Dispatchers.IO) {
+        runCatching {
+            val dir = File(
+                android.os.Environment.getExternalStorageDirectory(), "Decrypts/TXT"
+            ).also { it.mkdirs() }
+            val domain = try {
+                java.net.URI((_state.value as? UiState.Success)?.url ?: "unknown").host
+                    ?.replace(":", "_") ?: "unknown"
+            } catch (_: Exception) { "unknown" }
+            val file = File(dir, "$domain.txt")
+            file.writeText(_configs.value.joinToString("\n") { it.rawLink })
+            withContext(Dispatchers.Main) { onDone(file.absolutePath) }
+        }
+    }
+
+    val protocols: List<String> get() =
+        listOf("ВСЕ") + _configs.value.map { it.protocol }.distinct().sorted()
 }
