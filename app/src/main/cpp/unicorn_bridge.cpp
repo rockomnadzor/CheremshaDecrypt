@@ -605,17 +605,8 @@ bool Emulator::loadElfAndRun(const std::string& entrySymbol) {
     }
     if (!entry) { LOGE("entry symbol not found"); return false; }
 
-    diagLog += jniOnLoad ? "JNI_OnLoad found at 0x" + std::to_string(jniOnLoad - BASE) + "\n"
+    diagLog += jniOnLoad ? "JNI_OnLoad found at 0x" + std::to_string(jniOnLoad - BASE) + " (not called — disabled for stability)\n"
                           : "JNI_OnLoad NOT exported\n";
-
-    if (jniOnLoad) {
-        regSet(RX(0), envp);       // JavaVM* (тут условно передаём envp — тип роли не играет для наших целей)
-        regSet(RX(1), 0);
-        regSet(UC_ARM64_REG_SP, STACK_BASE + STACK_SIZE - 0x100);
-        regSet(UC_ARM64_REG_X30, HOOK_STOP);
-        uc_err onLoadErr = uc_emu_start(uc, jniOnLoad, HOOK_STOP, 0, 0);
-        diagLog += "JNI_OnLoad result: " + std::string(uc_strerror(onLoadErr)) + "\n";
-    }
     LOGI("[entry] file 0x%llx inLen=%zu", (unsigned long long)(entry - BASE), inBytes.size());
     diagLog += "entry found at 0x" + std::to_string(entry - BASE) + "\n";
     diagLog += "span=0x" + std::to_string(span) + " maxv=0x" + std::to_string(maxv) + " soLen=" + std::to_string(soBytes.size()) + "\n";
