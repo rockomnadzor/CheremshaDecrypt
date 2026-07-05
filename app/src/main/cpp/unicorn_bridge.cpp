@@ -491,6 +491,8 @@ bool Emulator::loadElfAndRun(const std::string& entrySymbol) {
         for (int i = 0; i < 8; i++) { sobk[off + i] = v & 0xff; v >>= 8; }
     };
 
+    std::map<uint32_t,int> unhandledTypes;
+    int zeroWrites = 0;
     auto applyRelocs = [&](uint64_t r, uint64_t sz) {
         for (uint64_t o = 0; o < sz; o += 24) {
             uint64_t off = ru64(sobk, r + o);
@@ -501,13 +503,24 @@ bool Emulator::loadElfAndRun(const std::string& entrySymbol) {
             if (type == 1027) { // RELATIVE
                 wset64(off, BASE + add);
             } else if (type == 1026 || type == 1025 || type == 257) { // JUMP_SLOT/GLOB_DAT/ABS64
-                if (symShndx(symi)) wset64(off, BASE + symValue(symi) + (type == 257 ? add : 0));
-                else wset64(off, resolveImport(symName(symi)));
+                if (symShndx(symi)) {
+                    wset64(off, BASE + symValue(symi) + (type == 257 ? add : 0));
+                } else {
+                    uint64_t resolved = resolveImport(symName(symi));
+                    if (resolved == 0) zeroWrites++;
+                    wset64(off, resolved);
+                }
+            } else if (type != 0) {
+                unhandledTypes[type]++;
             }
         }
     };
     applyRelocs(rela, relasz);
     applyRelocs(jmprel, pltsz);
+
+    diagLog += "unhandled reloc types: ";
+    for (auto& kv : unhandledTypes) diagLog += std::to_string(kv.first) + "x" + std::to_string(kv.second) + " ";
+    diagLog += "\nzero-address writes: " + std::to_string(zeroWrites) + "\n";
 
     errnoLoc = gmalloc(8);
     inArrGuest = gmalloc(inBytes.size());
