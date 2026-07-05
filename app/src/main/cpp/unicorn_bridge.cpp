@@ -41,6 +41,8 @@ public:
     std::string diagLog;
     uint64_t lastFetchAddr = 0;
     uint64_t lastPcBeforeFetch = 0;
+    uint64_t traceRing[16] = {0};
+    int traceIdx = 0;
     uc_engine* uc = nullptr;
     JNIEnv* realEnv = nullptr;
 
@@ -566,8 +568,17 @@ bool Emulator::loadElfAndRun(const std::string& entrySymbol) {
             auto* e = (Emulator*)ud;
             e->lastFetchAddr = address;
             uc_reg_read(u, UC_ARM64_REG_PC, &e->lastPcBeforeFetch);
-            return false; // не продолжать, пусть вернётся ошибка как обычно
+            return false;
         }, this, 1, 0);
+
+    // Трассировка последних выполненных адресов (кольцевой буфер) для диагностики без logcat.
+    uc_hook traceHook;
+    uc_hook_add(uc, &traceHook, UC_HOOK_CODE,
+        (void*)+[](uc_engine* u, uint64_t address, uint32_t size, void* ud) {
+            auto* e = (Emulator*)ud;
+            e->traceRing[e->traceIdx % 16] = address;
+            e->traceIdx++;
+        }, this, BASE, BASE + span);
 
     if (initarr) {
         for (uint64_t o = 0; o < initarrsz; o += 8) {
@@ -607,7 +618,15 @@ bool Emulator::loadElfAndRun(const std::string& entrySymbol) {
     uint64_t pcAfter = regGet(UC_ARM64_REG_PC);
     diagLog += "PC after stop: 0x" + std::to_string(pcAfter) + "\n";
     diagLog += "fetch attempted at: 0x" + std::to_string(lastFetchAddr) + "\n";
-    diagLog += "PC before bad fetch: 0x" + std::to_string(lastPcBeforeFetch) + " (file off 0x" + std::to_string(lastPcBeforeFetch >= BASE ? lastPcBeforeFetch - BASE : 0) + ")\n";
+    diagLog += "PC before bad fetch: 0x" + std::to_string(lastPcBeforeFetch) + "\n";
+    diagLog += "trace (last executed, oldest->newest, file offsets): ";
+    int total = traceIdx < 16 ? traceIdx : 16;
+    for (int i = 0; i < total; i++) {
+        uint64_t addr = traceRing[(traceIdx - total + i) % 16];
+        uint64_t off = addr >= BASE ? addr - BASE : addr;
+        diagLog += "0x" + std::to_string(off) + " ";
+    }
+    diagLog += "\n";
     diagLog += "handlers registered: " + std::to_string(handlers.size()) + "\n";
 
     LOGI("[done] haveOut=%d outLen=%llu", haveOut, (unsigned long long)outLen);
