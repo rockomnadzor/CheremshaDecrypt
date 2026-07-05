@@ -51,6 +51,13 @@ class MainActivity : ComponentActivity() {
             AppLogger.log("INIT", "Ошибка загрузки keytable: ${it.message}", LogLevel.ERROR)
         }
 
+        runCatching {
+            Crypt5Pipeline.init(this)
+            AppLogger.log("INIT", "Crypt5Pipeline инициализирован", LogLevel.SUCCESS)
+        }.onFailure {
+            AppLogger.log("INIT", "Ошибка Crypt5Pipeline: ${it.message}", LogLevel.ERROR)
+        }
+
         setContent {
             val vm: MainViewModel = viewModel()
             val mode by vm.themeMode.collectAsState()
