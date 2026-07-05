@@ -11,8 +11,12 @@ object EncryptedSubUrlHelper {
 
     private var keyTable: JSONObject? = null
 
+    // Диагностика без logcat/ADB — просто копим вызовы в памяти
+    val callLog = mutableListOf<String>()
+
     fun init(json: String) {
         keyTable = JSONObject(json)
+        callLog.clear()
     }
 
     @JvmStatic
@@ -29,6 +33,8 @@ object EncryptedSubUrlHelper {
         }
         if (n % 2 == 1) m0.append(marker[n - 1])
 
-        return keyTable?.optString(m0.toString(), "") ?: ""
+        val key = keyTable?.optString(m0.toString(), "") ?: ""
+        callLog.add("marker(len=$n)->M0='${m0}' keylen=${key.length}")
+        return key
     }
 }

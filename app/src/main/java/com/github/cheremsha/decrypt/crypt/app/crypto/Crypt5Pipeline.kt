@@ -2,6 +2,7 @@ package com.github.cheremsha.decrypt.crypt.app.crypto
 
 import android.content.Context
 import android.util.Base64
+import su.happ.proxyutility.util.protection.EncryptedSubUrlHelper
 
 object Crypt5Pipeline {
 
@@ -18,7 +19,15 @@ object Crypt5Pipeline {
 
         val nativeIn = m4831f(payload).toByteArray(Charsets.UTF_8)
         val outputBytes = UnicornBridge.decryptCrypt5(so, nativeIn)
-        require(outputBytes.isNotEmpty()) { "crypt5: пустой результат от эмулятора" }
+
+        if (outputBytes.isEmpty()) {
+            val diag = if (EncryptedSubUrlHelper.callLog.isEmpty())
+                "getHelp() НЕ был вызван вообще — эмулятор не дошёл до JNI-callback"
+            else
+                "getHelp() вызовов: ${EncryptedSubUrlHelper.callLog.size}\n" +
+                EncryptedSubUrlHelper.callLog.joinToString("\n")
+            error("crypt5: пустой результат.\n$diag")
+        }
 
         val obfuscated = String(outputBytes, Charsets.UTF_8)
         val swapped = swapPairs(obfuscated)
