@@ -604,6 +604,7 @@ bool Emulator::loadElfAndRun(const std::string& entrySymbol) {
     if (!entry) { LOGE("entry symbol not found"); return false; }
     LOGI("[entry] file 0x%llx inLen=%zu", (unsigned long long)(entry - BASE), inBytes.size());
     diagLog += "entry found at 0x" + std::to_string(entry - BASE) + "\n";
+    diagLog += "span=0x" + std::to_string(span) + " maxv=0x" + std::to_string(maxv) + " soLen=" + std::to_string(soBytes.size()) + "\n";
 
     regSet(RX(0), envp);
     regSet(RX(1), 1);
