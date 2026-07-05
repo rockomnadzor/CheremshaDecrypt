@@ -39,6 +39,8 @@ static int RX(int i) {
 class Emulator {
 public:
     std::string diagLog;
+    uint64_t lastFetchAddr = 0;
+    uint64_t lastPcBeforeFetch = 0;
     uc_engine* uc = nullptr;
     JNIEnv* realEnv = nullptr;
 
@@ -558,6 +560,15 @@ bool Emulator::loadElfAndRun(const std::string& entrySymbol) {
     uc_hook trace;
     uc_hook_add(uc, &trace, UC_HOOK_CODE, (void*)hookCodeTrampoline, this, HOOKBASE, HOOKBASE + 0x800);
 
+    uc_hook fetchHook;
+    uc_hook_add(uc, &fetchHook, UC_HOOK_MEM_FETCH_UNMAPPED,
+        (void*)+[](uc_engine* u, uc_mem_type type, uint64_t address, int size, int64_t value, void* ud) -> bool {
+            auto* e = (Emulator*)ud;
+            e->lastFetchAddr = address;
+            uc_reg_read(u, UC_ARM64_REG_PC, &e->lastPcBeforeFetch);
+            return false; // не продолжать, пусть вернётся ошибка как обычно
+        }, this, 1, 0);
+
     if (initarr) {
         for (uint64_t o = 0; o < initarrsz; o += 8) {
             uint64_t fn = ru64(sobk, initarr + o);
@@ -595,6 +606,8 @@ bool Emulator::loadElfAndRun(const std::string& entrySymbol) {
 
     uint64_t pcAfter = regGet(UC_ARM64_REG_PC);
     diagLog += "PC after stop: 0x" + std::to_string(pcAfter) + "\n";
+    diagLog += "fetch attempted at: 0x" + std::to_string(lastFetchAddr) + "\n";
+    diagLog += "PC before bad fetch: 0x" + std::to_string(lastPcBeforeFetch) + " (file off 0x" + std::to_string(lastPcBeforeFetch >= BASE ? lastPcBeforeFetch - BASE : 0) + ")\n";
     diagLog += "handlers registered: " + std::to_string(handlers.size()) + "\n";
 
     LOGI("[done] haveOut=%d outLen=%llu", haveOut, (unsigned long long)outLen);
