@@ -31,7 +31,7 @@ object AppLogger {
         val dir = File(context.filesDir, "logs").also { it.mkdirs() }
         logFile = File(dir, "app_${fileFmt.format(Date())}.log")
         loadFromFile()
-        startLogcat()
+        // startLogcat() отключен — вызывал краш при парсинге нативных C++ логов
     }
 
     fun log(tag: String, message: String, level: LogLevel = LogLevel.INFO) {
