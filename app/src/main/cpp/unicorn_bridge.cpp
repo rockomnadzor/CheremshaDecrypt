@@ -38,6 +38,7 @@ static int RX(int i) {
 
 class Emulator {
 public:
+    std::string diagLog;
     uc_engine* uc = nullptr;
     JNIEnv* realEnv = nullptr;
 
@@ -567,6 +568,7 @@ bool Emulator::loadElfAndRun(const std::string& entrySymbol) {
     }
     if (!entry) { LOGE("entry symbol not found"); return false; }
     LOGI("[entry] file 0x%llx inLen=%zu", (unsigned long long)(entry - BASE), inBytes.size());
+    diagLog += "entry found at 0x" + std::to_string(entry - BASE) + "\n";
 
     regSet(RX(0), envp);
     regSet(RX(1), 1);
@@ -575,7 +577,12 @@ bool Emulator::loadElfAndRun(const std::string& entrySymbol) {
     regSet(UC_ARM64_REG_X30, HOOK_STOP);
 
     uc_err e = uc_emu_start(uc, entry, HOOK_STOP, 0, 0);
+    diagLog += "emu_start result: " + std::string(uc_strerror(e)) + " (code " + std::to_string((int)e) + ")\n";
     if (e != UC_ERR_OK) LOGE("[emu_start error] %s", uc_strerror(e));
+
+    uint64_t pcAfter = regGet(UC_ARM64_REG_PC);
+    diagLog += "PC after stop: 0x" + std::to_string(pcAfter) + "\n";
+    diagLog += "handlers registered: " + std::to_string(handlers.size()) + "\n";
 
     LOGI("[done] haveOut=%d outLen=%llu", haveOut, (unsigned long long)outLen);
     uc_close(uc);
@@ -591,6 +598,8 @@ Java_com_github_cheremsha_decrypt_crypt_app_crypto_UnicornBridge_checkUnicornVer
     snprintf(buf, sizeof(buf), "%u.%u", major, minor);
     return env->NewStringUTF(buf);
 }
+
+static std::string g_lastDiag;
 
 extern "C" JNIEXPORT jbyteArray JNICALL
 Java_com_github_cheremsha_decrypt_crypt_app_crypto_UnicornBridge_decryptCrypt5(
@@ -610,6 +619,7 @@ Java_com_github_cheremsha_decrypt_crypt_app_crypto_UnicornBridge_decryptCrypt5(
     env->ReleaseByteArrayElements(inputArr, inPtr, JNI_ABORT);
 
     bool ok = emu.loadElfAndRun("Java_su_happ_proxyutility_util_ErrorCodeJNIWrapper_jniGetErrorMessageFromString2");
+    g_lastDiag = emu.diagLog + "loadElfAndRun returned: " + (ok ? "true" : "false");
 
     if (!ok || emu.outLen == 0) {
         return env->NewByteArray(0);
@@ -618,4 +628,10 @@ Java_com_github_cheremsha_decrypt_crypt_app_crypto_UnicornBridge_decryptCrypt5(
     jbyteArray result = env->NewByteArray((jsize)emu.outLen);
     env->SetByteArrayRegion(result, 0, (jsize)emu.outLen, (const jbyte*)emu.out.data());
     return result;
+}
+
+extern "C" JNIEXPORT jstring JNICALL
+Java_com_github_cheremsha_decrypt_crypt_app_crypto_UnicornBridge_getLastDiag(
+        JNIEnv *env, jobject) {
+    return env->NewStringUTF(g_lastDiag.c_str());
 }

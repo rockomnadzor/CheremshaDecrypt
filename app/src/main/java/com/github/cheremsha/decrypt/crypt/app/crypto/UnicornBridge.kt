@@ -7,4 +7,5 @@ object UnicornBridge {
 
     external fun checkUnicornVersion(): String
     external fun decryptCrypt5(soBytes: ByteArray, inputBytes: ByteArray): ByteArray
+    external fun getLastDiag(): String
 }

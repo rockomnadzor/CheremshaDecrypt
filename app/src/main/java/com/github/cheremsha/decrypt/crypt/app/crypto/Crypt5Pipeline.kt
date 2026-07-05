@@ -21,11 +21,11 @@ object Crypt5Pipeline {
         val outputBytes = UnicornBridge.decryptCrypt5(so, nativeIn)
 
         if (outputBytes.isEmpty()) {
+            val nativeDiag = try { UnicornBridge.getLastDiag() } catch (e: Throwable) { "getLastDiag failed: ${e.message}" }
             val diag = if (EncryptedSubUrlHelper.callLog.isEmpty())
-                "getHelp() НЕ был вызван вообще — эмулятор не дошёл до JNI-callback"
+                "getHelp() НЕ вызван.\n$nativeDiag"
             else
-                "getHelp() вызовов: ${EncryptedSubUrlHelper.callLog.size}\n" +
-                EncryptedSubUrlHelper.callLog.joinToString("\n")
+                "getHelp() вызовов: ${EncryptedSubUrlHelper.callLog.size}\n${EncryptedSubUrlHelper.callLog.joinToString("\n")}\n$nativeDiag"
             error("crypt5: пустой результат.\n$diag")
         }
 
