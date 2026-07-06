@@ -1,0 +1,8 @@
+{
+  "name": "cheremsha-crypt5-node",
+  "version": "1.0.0",
+  "main": "main.js",
+  "dependencies": {
+    "node-forge": "^1.4.0"
+  }
+}

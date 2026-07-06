@@ -7,6 +7,7 @@ import android.provider.Settings
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.github.cheremsha.decrypt.crypt.app.crypto.HappDecryptor
+import com.github.cheremsha.decrypt.crypt.app.crypto.NodeCrypt5Bridge
 import com.github.cheremsha.decrypt.crypt.app.network.SubFetcher
 import com.github.cheremsha.decrypt.crypt.app.parser.VpnConfig
 import com.github.cheremsha.decrypt.crypt.app.parser.VpnConfigParser
@@ -97,7 +98,10 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         val raw = _input.value.trim()
 
         runCatching {
-            val decryptedUrl = if (raw.startsWith("happ://")) {
+            val decryptedUrl = if (raw.startsWith("happ://crypt5/")) {
+                _state.value = UiState.Working("Дешифровка crypt5...")
+                NodeCrypt5Bridge.decrypt(raw)
+            } else if (raw.startsWith("happ://")) {
                 _state.value = UiState.Working("Дешифровка...")
                 HappDecryptor.decrypt(raw).getOrThrow()
             } else raw

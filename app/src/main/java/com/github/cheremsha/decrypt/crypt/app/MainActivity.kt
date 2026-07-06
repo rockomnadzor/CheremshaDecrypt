@@ -23,6 +23,7 @@ import com.github.cheremsha.decrypt.crypt.app.ui.MainViewModel
 import com.github.cheremsha.decrypt.crypt.app.ui.SettingsScreen
 import com.github.cheremsha.decrypt.crypt.app.ui.ThemeMode
 import com.github.cheremsha.decrypt.crypt.app.ui.theme.AppTheme
+import com.github.cheremsha.decrypt.crypt.app.crypto.NodeCrypt5Bridge
 import com.github.cheremsha.decrypt.crypt.app.util.AppLogger
 import com.github.cheremsha.decrypt.crypt.app.util.LogLevel
 import com.github.cheremsha.decrypt.crypt.app.crypto.Crypt5Pipeline
@@ -41,6 +42,7 @@ class MainActivity : ComponentActivity() {
         requestStoragePermissions()
 
         AppLogger.init(this)
+        NodeCrypt5Bridge.startOnce(this)
         AppLogger.log("INIT", "Приложение запущено")
 
         runCatching {
