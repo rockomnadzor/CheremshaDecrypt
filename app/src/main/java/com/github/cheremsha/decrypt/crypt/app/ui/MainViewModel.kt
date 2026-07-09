@@ -63,6 +63,19 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     fun setUseStaticHwid(v: Boolean) { _useStaticHwid.value = v }
     fun setCustomHwid(v: String)     { _customHwid.value = v }
 
+    // ---- User-Agent ----
+    private val _useStaticUserAgent = MutableStateFlow(true)
+    val useStaticUserAgent: StateFlow<Boolean> = _useStaticUserAgent.asStateFlow()
+    private val _customUserAgent = MutableStateFlow(SubFetcher.DEFAULT_USER_AGENT)
+    val customUserAgent: StateFlow<String> = _customUserAgent.asStateFlow()
+
+    val effectiveUserAgent: StateFlow<String> = combine(_useStaticUserAgent, _customUserAgent) { useStatic, custom ->
+        if (useStatic) SubFetcher.DEFAULT_USER_AGENT else custom.ifBlank { SubFetcher.DEFAULT_USER_AGENT }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), SubFetcher.DEFAULT_USER_AGENT)
+
+    fun setUseStaticUserAgent(v: Boolean) { _useStaticUserAgent.value = v }
+    fun setCustomUserAgent(v: String)     { _customUserAgent.value = v }
+
     private val _state = MutableStateFlow<UiState>(UiState.Idle)
     val state = _state.asStateFlow()
 
@@ -90,6 +103,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         _configs.value = emptyList()
 
         val hwid = effectiveHwid.value
+        val ua = effectiveUserAgent.value
         val raw = _input.value.trim()
 
         runCatching {
@@ -107,7 +121,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
             val content = if (decryptedUrl.startsWith("http")) {
                 _state.value = UiState.Working("Загрузка...")
-                SubFetcher.fetch(decryptedUrl, hwid)
+                SubFetcher.fetch(decryptedUrl, hwid, ua)
             } else decryptedUrl
 
             val parsed = withContext(Dispatchers.Default) { VpnConfigParser.parse(content) }

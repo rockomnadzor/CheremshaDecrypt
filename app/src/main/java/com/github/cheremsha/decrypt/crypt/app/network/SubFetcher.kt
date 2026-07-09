@@ -8,21 +8,25 @@ import java.util.concurrent.TimeUnit
 
 object SubFetcher {
 
-    private const val USER_AGENT = "Happ/3.18.3/Android/17771400994551771562"
+    const val DEFAULT_USER_AGENT = "Happ/3.18.3/Android/17771400994551771562"
 
     private val client = OkHttpClient.Builder()
         .connectTimeout(15, TimeUnit.SECONDS)
         .readTimeout(20, TimeUnit.SECONDS)
         .build()
 
-    suspend fun fetch(url: String, hwid: String): String = withContext(Dispatchers.IO) {
+    suspend fun fetch(
+        url: String,
+        hwid: String,
+        userAgent: String = DEFAULT_USER_AGENT
+    ): String = withContext(Dispatchers.IO) {
         val urlWithHwid = if ('?' in url) "$url&hwid=$hwid" else "$url?hwid=$hwid"
 
         for ((_, fetchUrl) in listOf("с HWID" to urlWithHwid, "без HWID" to url)) {
             runCatching {
                 val req = Request.Builder()
                     .url(fetchUrl)
-                    .header("User-Agent", USER_AGENT)
+                    .header("User-Agent", userAgent)
                     .header("X-HWID", hwid)
                     .header("Accept", "*/*")
                     .build()

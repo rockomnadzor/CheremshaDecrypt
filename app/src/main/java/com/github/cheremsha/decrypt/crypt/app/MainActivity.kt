@@ -52,10 +52,13 @@ class MainActivity : ComponentActivity() {
                 ThemeMode.AUTO  -> systemDark
             }
 
-            var showOnboarding by remember { mutableStateOf(!ApiKeyManager.hasKey(this@MainActivity)) }
+            // null = показываем приложение, "full" = весь онбординг, "keyOnly" = только экран ввода ключа
+            var onboardingMode by remember {
+                mutableStateOf(if (!ApiKeyManager.hasKey(this@MainActivity)) "full" else null)
+            }
             var screen by remember { mutableStateOf("home") }
 
-            BackHandler(enabled = screen != "home" && !showOnboarding) {
+            BackHandler(enabled = screen != "home" && onboardingMode == null) {
                 screen = when (screen) {
                     "logs"     -> "settings"
                     "settings" -> "home"
@@ -64,10 +67,12 @@ class MainActivity : ComponentActivity() {
             }
 
             AppTheme(darkTheme = darkTheme) {
-                if (showOnboarding) {
+                if (onboardingMode != null) {
                     OnboardingScreen(
                         isDark = darkTheme,
-                        onFinished = { showOnboarding = false }
+                        keyOnlyMode = onboardingMode == "keyOnly",
+                        onFinished = { onboardingMode = null },
+                        onCancel = { onboardingMode = null }
                     )
                 } else {
                     Crossfade(
@@ -80,10 +85,7 @@ class MainActivity : ComponentActivity() {
                                 vm, isDark = darkTheme,
                                 onBack = { screen = "home" },
                                 onLogs = { screen = "logs" },
-                                onChangeApiKey = {
-                                    ApiKeyManager.clearKey(this@MainActivity)
-                                    showOnboarding = true
-                                }
+                                onChangeApiKey = { onboardingMode = "keyOnly" }
                             )
                             else -> HomeScreen(
                                 vm, isDark = darkTheme,

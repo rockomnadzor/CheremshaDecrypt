@@ -45,13 +45,13 @@ import kotlinx.coroutines.launch
 private const val KEY_GEN_URL = "https://happy-decoder.cc/api"
 
 @Composable
-fun OnboardingScreen(isDark: Boolean, onFinished: () -> Unit) {
+fun OnboardingScreen(isDark: Boolean, keyOnlyMode: Boolean = false, onFinished: () -> Unit, onCancel: () -> Unit = {}) {
     val context = LocalContext.current
     val colors = LocalAppColors.current
     val clipboard = LocalClipboardManager.current
     val scope = rememberCoroutineScope()
 
-    var page by remember { mutableIntStateOf(0) }
+    var page by remember { mutableIntStateOf(if (keyOnlyMode) 2 else 0) }
     var keyInput by remember { mutableStateOf("") }
     var validating by remember { mutableStateOf(false) }
     var errorMsg by remember { mutableStateOf<String?>(null) }
@@ -80,7 +80,7 @@ fun OnboardingScreen(isDark: Boolean, onFinished: () -> Unit) {
                         clipboard.setText(AnnotatedString(KEY_GEN_URL))
                         Toast.makeText(context, "Ссылка скопирована", Toast.LENGTH_SHORT).show()
                     },
-                    onBack = { page = 1 },
+                    onBack = { if (keyOnlyMode) onCancel() else page = 1 },
                     onValidate = {
                         val trimmed = keyInput.trim()
                         if (trimmed.isBlank()) {
