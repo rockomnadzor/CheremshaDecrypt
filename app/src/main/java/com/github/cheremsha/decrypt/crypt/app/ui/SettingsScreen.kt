@@ -26,7 +26,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.github.cheremsha.decrypt.crypt.app.R
-import com.github.cheremsha.decrypt.crypt.app.crypto.UnicornBridge
 import com.github.cheremsha.decrypt.crypt.app.ui.theme.*
 
 private const val GITHUB_URL   = "https://github.com/rockomnadzor/CheremshaDecrypt"
@@ -114,68 +113,40 @@ fun SettingsScreen(vm: MainViewModel, isDark: Boolean, onBack: () -> Unit, onLog
             }
 
             Spacer(Modifier.height(12.dp))
-        Row(
-            Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(10.dp))
-                .background(colors.cardBg)
-                .clickable { onLogs() }
-                .padding(horizontal = 14.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Icon(Icons.Default.List, null, tint = Cyan, modifier = Modifier.size(20.dp))
-            Spacer(Modifier.width(12.dp))
-            Text("Логи", color = colors.textPrimary, fontSize = 14.sp)
-            Spacer(Modifier.weight(1f))
-            Icon(Icons.Default.ChevronRight, null, tint = colors.textDim, modifier = Modifier.size(18.dp))
-        }
-
-
-        Spacer(Modifier.height(12.dp))
-        var unicornResult by remember { mutableStateOf<String?>(null) }
-        Row(
-            Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(10.dp))
-                .background(colors.cardBg)
-                .clickable {
-                    unicornResult = try {
-                        "OK: Unicorn v" + UnicornBridge.checkUnicornVersion()
-                    } catch (e: Throwable) {
-                        "FAIL: " + (e.message ?: e.toString())
-                    }
-                }
-                .padding(horizontal = 14.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Icon(Icons.Default.BugReport, null, tint = Purple, modifier = Modifier.size(20.dp))
-            Spacer(Modifier.width(12.dp))
-            Column(Modifier.weight(1f)) {
-                Text("Test Unicorn", color = colors.textPrimary, fontSize = 14.sp)
-                unicornResult?.let {
-                    Text(it, color = if (it.startsWith("OK")) Green else RedProto, fontSize = 11.sp)
-                }
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(colors.cardBg)
+                    .clickable { onLogs() }
+                    .padding(horizontal = 14.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(Icons.Default.List, null, tint = Cyan, modifier = Modifier.size(20.dp))
+                Spacer(Modifier.width(12.dp))
+                Text("Логи", color = colors.textPrimary, fontSize = 14.sp)
+                Spacer(Modifier.weight(1f))
+                Icon(Icons.Default.ChevronRight, null, tint = colors.textDim, modifier = Modifier.size(18.dp))
             }
-        }
 
-        Spacer(Modifier.height(8.dp))
-        Row(
-            Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(10.dp))
-                .background(colors.cardBg)
-                .clickable { onChangeApiKey() }
-                .padding(horizontal = 14.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Icon(Icons.Default.VpnKey, null, tint = Orange, modifier = Modifier.size(20.dp))
-            Spacer(Modifier.width(12.dp))
-            Text("Изменить API-ключ", color = colors.textPrimary, fontSize = 14.sp)
-            Spacer(Modifier.weight(1f))
-            Icon(Icons.Default.ChevronRight, null, tint = colors.textDim, modifier = Modifier.size(18.dp))
-        }
+            Spacer(Modifier.height(12.dp))
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(colors.cardBg)
+                    .clickable { onChangeApiKey() }
+                    .padding(horizontal = 14.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(Icons.Default.VpnKey, null, tint = Orange, modifier = Modifier.size(20.dp))
+                Spacer(Modifier.width(12.dp))
+                Text("Изменить API-ключ", color = colors.textPrimary, fontSize = 14.sp)
+                Spacer(Modifier.weight(1f))
+                Icon(Icons.Default.ChevronRight, null, tint = colors.textDim, modifier = Modifier.size(18.dp))
+            }
 
-        HorizontalDivider(color = colors.border)
+            HorizontalDivider(color = colors.border)
             Spacer(Modifier.height(14.dp))
 
             LinkRow("Исходный код", GITHUB_URL, Icons.Default.Code, Cyan, colors) {
