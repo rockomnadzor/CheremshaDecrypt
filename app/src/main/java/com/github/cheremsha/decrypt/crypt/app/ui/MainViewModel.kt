@@ -6,8 +6,8 @@ import android.content.ClipboardManager
 import android.provider.Settings
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.github.cheremsha.decrypt.crypt.app.crypto.HappDecryptor
-import com.github.cheremsha.decrypt.crypt.app.crypto.NodeCrypt5Bridge
+import com.github.cheremsha.decrypt.crypt.app.crypto.ApiKeyManager
+import com.github.cheremsha.decrypt.crypt.app.crypto.HappyDecoderApi
 import com.github.cheremsha.decrypt.crypt.app.network.SubFetcher
 import com.github.cheremsha.decrypt.crypt.app.parser.VpnConfig
 import com.github.cheremsha.decrypt.crypt.app.parser.VpnConfigParser
@@ -24,20 +24,15 @@ enum class ThemeMode { LIGHT, DARK, AUTO }
 sealed class UiState {
     object Idle : UiState()
     data class Working(val step: String) : UiState()
-    
-    // Для happ://crypt — специальный режим
     data class DirectSubscription(val subscriptionUrl: String) : UiState()
-    
-    // Обычный режим с конфигами
     data class Success(val url: String, val configs: List<VpnConfig>) : UiState()
-    
     data class Error(val msg: String) : UiState()
 }
 
 class MainViewModel(app: Application) : AndroidViewModel(app) {
 
-    companion object {                                             
-        const val STATIC_HWID = "a67d61b1c88dc678"             
+    companion object {
+        const val STATIC_HWID = "a67d61b1c88dc678"
     }
 
     private val prefs = app.getSharedPreferences("cheremsha_prefs", 0)
@@ -57,7 +52,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     ) ?: STATIC_HWID
 
     private val _useStaticHwid = MutableStateFlow(true)
-    val useStaticHwid: StateFlow<Boolean> = _useStaticHwid.asStateFlow()                                              
+    val useStaticHwid: StateFlow<Boolean> = _useStaticHwid.asStateFlow()
     private val _customHwid = MutableStateFlow(deviceHwid)
     val customHwid: StateFlow<String> = _customHwid.asStateFlow()
 
@@ -98,22 +93,18 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         val raw = _input.value.trim()
 
         runCatching {
-            val decryptedUrl = if (raw.startsWith("happ://crypt5/")) {
-                _state.value = UiState.Working("Дешифровка crypt5...")
-                NodeCrypt5Bridge.decrypt(raw)
-            } else if (raw.startsWith("happ://")) {
-                _state.value = UiState.Working("Дешифровка...")
-                HappDecryptor.decrypt(raw).getOrThrow()
+            val decryptedUrl = if (raw.startsWith("happ://")) {
+                _state.value = UiState.Working("Дешифровка через API...")
+                val apiKey = ApiKeyManager.getKey(getApplication()) ?: error("API-ключ не найден")
+                HappyDecoderApi.decrypt(raw, apiKey).getOrThrow()
             } else raw
 
             if (raw.startsWith("happ://")) {
-                // Специальный режим для happ://
                 _state.value = UiState.DirectSubscription(decryptedUrl)
                 AppLogger.log("DECRYPT", "Расшифрована подписка: $decryptedUrl", LogLevel.SUCCESS)
                 return@runCatching
             }
 
-            // Обычный режим
             val content = if (decryptedUrl.startsWith("http")) {
                 _state.value = UiState.Working("Загрузка...")
                 SubFetcher.fetch(decryptedUrl, hwid)
@@ -126,6 +117,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
         }.onFailure {
             _state.value = UiState.Error(it.message ?: "Неизвестная ошибка")
+            AppLogger.log("DECRYPT", "Ошибка: ${it.message}", LogLevel.ERROR)
         }
     }
 

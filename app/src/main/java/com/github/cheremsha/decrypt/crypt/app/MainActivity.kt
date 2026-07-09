@@ -17,17 +17,15 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.*
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.github.cheremsha.decrypt.crypt.app.crypto.ApiKeyManager
 import com.github.cheremsha.decrypt.crypt.app.ui.HomeScreen
 import com.github.cheremsha.decrypt.crypt.app.ui.LogsScreen
 import com.github.cheremsha.decrypt.crypt.app.ui.MainViewModel
+import com.github.cheremsha.decrypt.crypt.app.ui.OnboardingScreen
 import com.github.cheremsha.decrypt.crypt.app.ui.SettingsScreen
 import com.github.cheremsha.decrypt.crypt.app.ui.ThemeMode
 import com.github.cheremsha.decrypt.crypt.app.ui.theme.AppTheme
-import com.github.cheremsha.decrypt.crypt.app.crypto.NodeCrypt5Bridge
 import com.github.cheremsha.decrypt.crypt.app.util.AppLogger
-import com.github.cheremsha.decrypt.crypt.app.util.LogLevel
-import com.github.cheremsha.decrypt.crypt.app.crypto.Crypt5Pipeline
-import su.happ.proxyutility.util.protection.EncryptedSubUrlHelper
 
 class MainActivity : ComponentActivity() {
 
@@ -42,23 +40,7 @@ class MainActivity : ComponentActivity() {
         requestStoragePermissions()
 
         AppLogger.init(this)
-        NodeCrypt5Bridge.startOnce(this)
         AppLogger.log("INIT", "Приложение запущено")
-
-        runCatching {
-            val json = assets.open("keytable.json").bufferedReader().readText()
-            EncryptedSubUrlHelper.init(json)
-            AppLogger.log("INIT", "keytable.json загружен (${json.length} байт)", LogLevel.SUCCESS)
-        }.onFailure {
-            AppLogger.log("INIT", "Ошибка загрузки keytable: ${it.message}", LogLevel.ERROR)
-        }
-
-        runCatching {
-            Crypt5Pipeline.init(this)
-            AppLogger.log("INIT", "Crypt5Pipeline инициализирован", LogLevel.SUCCESS)
-        }.onFailure {
-            AppLogger.log("INIT", "Ошибка Crypt5Pipeline: ${it.message}", LogLevel.ERROR)
-        }
 
         setContent {
             val vm: MainViewModel = viewModel()
@@ -69,9 +51,11 @@ class MainActivity : ComponentActivity() {
                 ThemeMode.DARK  -> true
                 ThemeMode.AUTO  -> systemDark
             }
+
+            var showOnboarding by remember { mutableStateOf(!ApiKeyManager.hasKey(this@MainActivity)) }
             var screen by remember { mutableStateOf("home") }
 
-            BackHandler(enabled = screen != "home") {
+            BackHandler(enabled = screen != "home" && !showOnboarding) {
                 screen = when (screen) {
                     "logs"     -> "settings"
                     "settings" -> "home"
@@ -80,21 +64,32 @@ class MainActivity : ComponentActivity() {
             }
 
             AppTheme(darkTheme = darkTheme) {
-                Crossfade(
-                    targetState = screen,
-                    animationSpec = tween(durationMillis = 280)
-                ) { current ->
-                    when (current) {
-                        "logs" -> LogsScreen(onBack = { screen = "settings" })
-                        "settings" -> SettingsScreen(
-                            vm, isDark = darkTheme,
-                            onBack = { screen = "home" },
-                            onLogs = { screen = "logs" }
-                        )
-                        else -> HomeScreen(
-                            vm, isDark = darkTheme,
-                            onSettings = { screen = "settings" }
-                        )
+                if (showOnboarding) {
+                    OnboardingScreen(
+                        isDark = darkTheme,
+                        onFinished = { showOnboarding = false }
+                    )
+                } else {
+                    Crossfade(
+                        targetState = screen,
+                        animationSpec = tween(durationMillis = 280)
+                    ) { current ->
+                        when (current) {
+                            "logs" -> LogsScreen(onBack = { screen = "settings" })
+                            "settings" -> SettingsScreen(
+                                vm, isDark = darkTheme,
+                                onBack = { screen = "home" },
+                                onLogs = { screen = "logs" },
+                                onChangeApiKey = {
+                                    ApiKeyManager.clearKey(this@MainActivity)
+                                    showOnboarding = true
+                                }
+                            )
+                            else -> HomeScreen(
+                                vm, isDark = darkTheme,
+                                onSettings = { screen = "settings" }
+                            )
+                        }
                     }
                 }
             }

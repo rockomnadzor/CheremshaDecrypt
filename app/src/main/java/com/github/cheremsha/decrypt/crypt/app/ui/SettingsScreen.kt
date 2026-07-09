@@ -34,7 +34,7 @@ private const val TELEGRAM_URL = "https://t.me/cheremshaprojects"
 private const val APP_VERSION  = "v1.0"
 
 @Composable
-fun SettingsScreen(vm: MainViewModel, isDark: Boolean, onBack: () -> Unit, onLogs: () -> Unit = {}) {
+fun SettingsScreen(vm: MainViewModel, isDark: Boolean, onBack: () -> Unit, onLogs: () -> Unit = {}, onChangeApiKey: () -> Unit = {}) {
     val context = LocalContext.current
     val colors  = LocalAppColors.current
     val mode    by vm.themeMode.collectAsState()
@@ -156,6 +156,23 @@ fun SettingsScreen(vm: MainViewModel, isDark: Boolean, onBack: () -> Unit, onLog
                     Text(it, color = if (it.startsWith("OK")) Green else RedProto, fontSize = 11.sp)
                 }
             }
+        }
+
+        Spacer(Modifier.height(8.dp))
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(10.dp))
+                .background(colors.cardBg)
+                .clickable { onChangeApiKey() }
+                .padding(horizontal = 14.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(Icons.Default.VpnKey, null, tint = Orange, modifier = Modifier.size(20.dp))
+            Spacer(Modifier.width(12.dp))
+            Text("Изменить API-ключ", color = colors.textPrimary, fontSize = 14.sp)
+            Spacer(Modifier.weight(1f))
+            Icon(Icons.Default.ChevronRight, null, tint = colors.textDim, modifier = Modifier.size(18.dp))
         }
 
         HorizontalDivider(color = colors.border)

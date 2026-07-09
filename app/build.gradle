@@ -2,7 +2,6 @@ plugins {
     id 'com.android.application'
     id 'org.jetbrains.kotlin.android'
 }
-apply plugin: 'org.nodejs.mobile.gradle'
 
 android {
     namespace 'com.github.cheremsha.decrypt.crypt.app'
@@ -12,7 +11,7 @@ android {
         applicationId "com.github.cheremsha.decrypt.crypt.app"
         minSdk 26
         targetSdk 34
-        versionCode 2
+        versionCode 3
         versionName "1.1"
     }
 
