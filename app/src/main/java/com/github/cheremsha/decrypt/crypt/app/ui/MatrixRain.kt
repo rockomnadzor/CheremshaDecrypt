@@ -58,17 +58,26 @@ fun MatrixRain(modifier: Modifier = Modifier, isDark: Boolean = true) {
         }
     }
 
+    // === Цвета для тёмной темы (классический Matrix) ===
     val headColor: Color
     val nearColor: Color
     val tailColor: Color
+    val bgColor: Color
+    val glowAlpha: Float
+
     if (isDark) {
-        headColor = Color(0xFFEFFFEF)
-        nearColor = Color(0xFF5CFF7A)
-        tailColor = Color(0xFF12B34A)
+        headColor = Color(0xFFEFFFEF)   // Почти белая "голова"
+        nearColor = Color(0xFF5CFF7A)   // Ярко-зелёная зона
+        tailColor = Color(0xFF12B34A)   // Тёмно-зелёный хвост
+        bgColor   = Color.Black
+        glowAlpha = 0.35f
     } else {
-        headColor = Color(0xFF003D14)
-        nearColor = Color(0xFF0B7A2E)
-        tailColor = Color(0xFF1FA34A)
+        // === Цвета для светлой темы (инвертированные, но сохраняющие эффект) ===
+        headColor = Color(0xFF002200)   // Почти чёрная "голова"
+        nearColor = Color(0xFF008822)   // Насыщенный зелёный
+        tailColor = Color(0xFF44BB66)   // Светло-зелёный хвост
+        bgColor   = Color(0xFFF5F5F5)   // Светло-серый фон
+        glowAlpha = 0.25f
     }
 
     val paint = remember {
@@ -87,6 +96,9 @@ fun MatrixRain(modifier: Modifier = Modifier, isDark: Boolean = true) {
     }
 
     Canvas(modifier) {
+        // Заливаем фон
+        drawRect(color = bgColor, size = size)
+
         @Suppress("UNUSED_EXPRESSION") tick
 
         drawIntoCanvas { canvas ->
@@ -115,7 +127,7 @@ fun MatrixRain(modifier: Modifier = Modifier, isDark: Boolean = true) {
 
                     // Псевдо-свечение: мягкий подслой чуть большего размера и ниже альфы под основным символом
                     if (i <= 2) {
-                        glowPaint.color = color.copy(alpha = color.alpha * 0.35f).toArgb()
+                        glowPaint.color = color.copy(alpha = color.alpha * glowAlpha).toArgb()
                         nc.drawText(ch, x - 1.5f, cy + 1.5f, glowPaint)
                         nc.drawText(ch, x + 1.5f, cy - 1.5f, glowPaint)
                     }
