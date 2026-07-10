@@ -1,9 +1,7 @@
 package com.github.cheremsha.decrypt.crypt.app.ui
 
-import android.graphics.BlurMaskFilter
 import android.graphics.Paint
 import android.graphics.Typeface
-import android.os.Build
 import androidx.compose.foundation.Canvas
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -32,6 +30,9 @@ fun MatrixRain(modifier: Modifier = Modifier, isDark: Boolean = true) {
     val cols = remember(w) { (w / CELL).toInt().coerceAtLeast(1) }
     val rows = remember(h) { (h / CELL).toInt().coerceAtLeast(1) }
 
+    // Защита от деления на ноль
+    if (cols <= 0 || rows <= 0) return
+
     // Фоновая сетка
     val bgGrid = remember(cols, rows) {
         Array(cols) { Array(rows) { 
@@ -42,17 +43,17 @@ fun MatrixRain(modifier: Modifier = Modifier, isDark: Boolean = true) {
 
     // Яркие streams
     val streams = remember(cols) { 
-        List(cols) { StreamState(h, rows) } 
+        List(cols) { StreamState(rows) } 
     }
 
     var tick by remember { mutableLongStateOf(0L) }
 
-    LaunchedEffect(cols, h, rows) {
+    LaunchedEffect(cols, rows) {
         while (isActive) {
             delay(FRAME_MS)
             bgPhase.floatValue += 0.05f
             for (s in streams) {
-                s.update(h, rows)
+                s.update(rows)
             }
             tick++
         }
@@ -65,7 +66,6 @@ fun MatrixRain(modifier: Modifier = Modifier, isDark: Boolean = true) {
     val tailColor: Color
     val bgColor: Color
     val bgSymbolColor: Color
-    val glowColor: Color
 
     if (isDark) {
         headColor = Color(0xFFFFFFFF)
@@ -74,7 +74,6 @@ fun MatrixRain(modifier: Modifier = Modifier, isDark: Boolean = true) {
         tailColor = Color(0xFF228822)
         bgColor = Color(0xFF000800)
         bgSymbolColor = Color(0xFF0A1A0A)
-        glowColor = Color(0xFF44FF44)
     } else {
         headColor = Color(0xFF001100)
         brightColor = Color(0xFF004400)
@@ -82,7 +81,6 @@ fun MatrixRain(modifier: Modifier = Modifier, isDark: Boolean = true) {
         tailColor = Color(0xFF88CC88)
         bgColor = Color(0xFFF0F5F0)
         bgSymbolColor = Color(0xFFE0E8E0)
-        glowColor = Color(0xFF228822)
     }
 
     val bgPaint = remember {
@@ -91,18 +89,6 @@ fun MatrixRain(modifier: Modifier = Modifier, isDark: Boolean = true) {
             typeface = Typeface.MONOSPACE
             textSize = with(density) { 14.dp.toPx() }
             textAlign = Paint.Align.CENTER
-        }
-    }
-
-    val glowPaint = remember {
-        Paint().apply {
-            isAntiAlias = true
-            typeface = Typeface.MONOSPACE
-            textSize = with(density) { 14.dp.toPx() }
-            textAlign = Paint.Align.CENTER
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                maskFilter = BlurMaskFilter(8f, BlurMaskFilter.Blur.NORMAL)
-            }
         }
     }
 
@@ -116,9 +102,6 @@ fun MatrixRain(modifier: Modifier = Modifier, isDark: Boolean = true) {
     }
 
     Canvas(modifier) {
-        val width = size.width
-        val height = size.height
-
         drawRect(color = bgColor, size = size)
 
         @Suppress("UNUSED_EXPRESSION") tick
@@ -153,20 +136,23 @@ fun MatrixRain(modifier: Modifier = Modifier, isDark: Boolean = true) {
                     val cy = rowIdx * CELL + CELL * 0.75f
                     val ch = stream.chars[i % stream.chars.size]
                     
-                    val (color, alpha, useGlow) = when {
-                        i == 0 -> Triple(headColor, 1.0f, true)
-                        i == 1 -> Triple(brightColor, 0.95f, true)
-                        i <= 3 -> Triple(midColor, 0.85f - (i - 2) * 0.15f, true)
-                        i <= 6 -> Triple(tailColor, 0.6f - (i - 4) * 0.08f, false)
-                        else -> Triple(tailColor, maxOf(0.03f, 0.4f - i * 0.04f), false)
+                    val (color, alpha) = when {
+                        i == 0 -> Pair(headColor, 1.0f)
+                        i == 1 -> Pair(brightColor, 0.95f)
+                        i <= 3 -> Pair(midColor, 0.85f - (i - 2) * 0.15f)
+                        i <= 6 -> Pair(tailColor, 0.6f - (i - 4) * 0.08f)
+                        else -> Pair(tailColor, maxOf(0.03f, 0.4f - i * 0.04f))
                     }
 
                     val finalAlpha = (alpha * 255).toInt().coerceIn(0, 255)
 
-                    if (useGlow && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                        glowPaint.color = glowColor.copy(alpha = alpha * 0.3f).toArgb()
-                        glowPaint.alpha = (alpha * 0.3f * 255).toInt()
-                        nc.drawText(ch.toString(), x, cy, glowPaint)
+                    // Псевдо-свечение через мягкий подслой
+                    if (i <= 2) {
+                        paint.color = color.copy(alpha = alpha * 0.3f).toArgb()
+                        paint.alpha = (alpha * 0.3f * 255).toInt()
+                        paint.textSize = with(density) { 18.dp.toPx() }
+                        nc.drawText(ch.toString(), x, cy, paint)
+                        paint.textSize = with(density) { 14.dp.toPx() }
                     }
 
                     paint.color = color.toArgb()
@@ -178,15 +164,17 @@ fun MatrixRain(modifier: Modifier = Modifier, isDark: Boolean = true) {
     }
 }
 
-private class StreamState(private val screenH: Float, private val rows: Int) {
+private class StreamState(private val rows: Int) {
     var active: Boolean = Random.nextFloat() < 0.6f
-    var headRow: Float = -Random.nextInt(rows).toFloat()
+    var headRow: Float = -Random.nextInt(rows.coerceAtLeast(1)).toFloat()
     var length: Int = 8 + Random.nextInt(20)
     var speed: Float = 0.15f + Random.nextFloat() * 0.35f
     var chars: CharArray = CharArray(40) { CHARS.random() }
     private var changeTimer: Int = 0
 
-    fun update(screenH: Float, rows: Int) {
+    fun update(rows: Int) {
+        val safeRows = rows.coerceAtLeast(1)
+        
         if (!active) {
             if (Random.nextFloat() < 0.003f) {
                 active = true
@@ -197,7 +185,7 @@ private class StreamState(private val screenH: Float, private val rows: Int) {
 
         headRow += speed
 
-        if (headRow > rows + length) {
+        if (headRow > safeRows + length) {
             headRow = -length.toFloat()
             if (Random.nextFloat() < 0.25f) {
                 active = false
