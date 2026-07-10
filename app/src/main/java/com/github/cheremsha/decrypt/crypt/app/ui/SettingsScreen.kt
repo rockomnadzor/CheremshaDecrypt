@@ -30,7 +30,7 @@ import com.github.cheremsha.decrypt.crypt.app.ui.theme.*
 
 private const val GITHUB_URL   = "https://github.com/rockomnadzor/CheremshaDecrypt"
 private const val TELEGRAM_URL = "https://t.me/cheremshaprojects"
-private const val APP_VERSION  = "v1.0"
+private const val APP_VERSION  = "v1.1"
 
 @Composable
 fun SettingsScreen(vm: MainViewModel, isDark: Boolean, onBack: () -> Unit, onLogs: () -> Unit = {}, onChangeApiKey: () -> Unit = {}) {
@@ -77,7 +77,6 @@ fun SettingsScreen(vm: MainViewModel, isDark: Boolean, onBack: () -> Unit, onLog
             Spacer(Modifier.height(8.dp))
             ThemeOption("Авто (системная)", Icons.Default.BrightnessAuto, ThemeMode.AUTO, mode, vm, colors)
 
-            // ── Брендинг вместо пустоты ──────────────────────────
             Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Box(
@@ -106,7 +105,7 @@ fun SettingsScreen(vm: MainViewModel, isDark: Boolean, onBack: () -> Unit, onLog
                     )
                     Spacer(Modifier.height(8.dp))
                     Text(
-                        "RSA decrypt • VPN config parser",
+                        "HTTP API decrypt • VPN config parser",
                         color = colors.textDim, fontSize = 11.sp, fontFamily = FontFamily.Monospace
                     )
                 }
@@ -129,7 +128,7 @@ fun SettingsScreen(vm: MainViewModel, isDark: Boolean, onBack: () -> Unit, onLog
                 Icon(Icons.Default.ChevronRight, null, tint = colors.textDim, modifier = Modifier.size(18.dp))
             }
 
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(8.dp))
             Row(
                 Modifier
                     .fillMaxWidth()
@@ -146,14 +145,15 @@ fun SettingsScreen(vm: MainViewModel, isDark: Boolean, onBack: () -> Unit, onLog
                 Icon(Icons.Default.ChevronRight, null, tint = colors.textDim, modifier = Modifier.size(18.dp))
             }
 
+            Spacer(Modifier.height(14.dp))
             HorizontalDivider(color = colors.border)
             Spacer(Modifier.height(14.dp))
 
-            LinkRow("Исходный код", GITHUB_URL, Icons.Default.Code, Cyan, colors) {
+            LinkRow("Исходный код", Icons.Default.Code, Cyan, colors) {
                 context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(GITHUB_URL)))
             }
             Spacer(Modifier.height(8.dp))
-            LinkRow("ТГК", TELEGRAM_URL, Icons.Default.Send, Purple, colors) {
+            LinkRow("ТГК", Icons.Default.Send, Purple, colors) {
                 context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(TELEGRAM_URL)))
             }
             Spacer(Modifier.height(20.dp))
@@ -192,7 +192,7 @@ private fun ThemeOption(
 
 @Composable
 private fun LinkRow(
-    label: String, url: String, icon: ImageVector,
+    label: String, icon: ImageVector,
     accent: Color, colors: AppColors, onClick: () -> Unit
 ) {
     Row(
@@ -206,10 +206,7 @@ private fun LinkRow(
     ) {
         Icon(icon, null, tint = accent, modifier = Modifier.size(18.dp))
         Spacer(Modifier.width(10.dp))
-        Column(Modifier.weight(1f)) {
-            Text(label, color = colors.textPrimary, fontSize = 13.sp, fontWeight = FontWeight.Medium)
-            Text(url, color = colors.textDim, fontSize = 10.sp, fontFamily = FontFamily.Monospace)
-        }
+        Text(label, color = colors.textPrimary, fontSize = 14.sp, fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f))
         Icon(Icons.Default.OpenInNew, null, tint = colors.textDim, modifier = Modifier.size(15.dp))
     }
 }
