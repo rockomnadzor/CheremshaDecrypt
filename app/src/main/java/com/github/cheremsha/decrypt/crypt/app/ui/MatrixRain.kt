@@ -19,8 +19,8 @@ import kotlinx.coroutines.isActive
 import kotlin.random.Random
 
 private const val CHARS = "0123456789"
-private const val CELL = 18f           // Меньше = плотнее, как на видео
-private const val FRAME_MS = 50L      // 20fps для плавности
+private const val CELL = 18f
+private const val FRAME_MS = 50L
 
 @Composable
 fun MatrixRain(modifier: Modifier = Modifier, isDark: Boolean = true) {
@@ -32,8 +32,7 @@ fun MatrixRain(modifier: Modifier = Modifier, isDark: Boolean = true) {
     val cols = remember(w) { (w / CELL).toInt().coerceAtLeast(1) }
     val rows = remember(h) { (h / CELL).toInt().coerceAtLeast(1) }
 
-    // === ФОНОВАЯ СЕТКА (всегда видна, тусклая) ===
-    // Каждая ячейка имеет свой символ и "фазу мерцания"
+    // Фоновая сетка
     val bgGrid = remember(cols, rows) {
         Array(cols) { Array(rows) { 
             Pair(CHARS.random(), Random.nextFloat()) 
@@ -41,7 +40,7 @@ fun MatrixRain(modifier: Modifier = Modifier, isDark: Boolean = true) {
     }
     val bgPhase = remember { mutableFloatStateOf(0f) }
 
-    // === ЯРКИЕ ПОЛОСЫ (падающие streams) ===
+    // Яркие streams
     val streams = remember(cols) { 
         List(cols) { StreamState(h, rows) } 
     }
@@ -51,43 +50,41 @@ fun MatrixRain(modifier: Modifier = Modifier, isDark: Boolean = true) {
     LaunchedEffect(cols, h, rows) {
         while (isActive) {
             delay(FRAME_MS)
-            
-            // Мерцаем фон
             bgPhase.floatValue += 0.05f
-            
-            // Обновляем streams
             for (s in streams) {
                 s.update(h, rows)
             }
-            
             tick++
         }
     }
 
-    // === ЦВЕТА ===
-    val (headColor, brightColor, midColor, tailColor, bgColor, bgSymbolColor, glowColor) = if (isDark) {
-        arrayOf(
-            Color(0xFFFFFFFF),      // head — белая
-            Color(0xFFCCFFCC),      // bright — ярко-зелёная
-            Color(0xFF66DD66),      // mid — средний зелёный
-            Color(0xFF228822),      // tail — тёмно-зелёный
-            Color(0xFF000800),      // bg — почти чёрный с зелёным оттенком
-            Color(0xFF0A1A0A),      // bgSymbol — едва видимый зелёный
-            Color(0xFF44FF44)       // glow — для blur
-        )
+    // Цвета
+    val headColor: Color
+    val brightColor: Color
+    val midColor: Color
+    val tailColor: Color
+    val bgColor: Color
+    val bgSymbolColor: Color
+    val glowColor: Color
+
+    if (isDark) {
+        headColor = Color(0xFFFFFFFF)
+        brightColor = Color(0xFFCCFFCC)
+        midColor = Color(0xFF66DD66)
+        tailColor = Color(0xFF228822)
+        bgColor = Color(0xFF000800)
+        bgSymbolColor = Color(0xFF0A1A0A)
+        glowColor = Color(0xFF44FF44)
     } else {
-        arrayOf(
-            Color(0xFF001100),      // head — тёмно-зелёная
-            Color(0xFF004400),      // bright
-            Color(0xFF116611),      // mid
-            Color(0xFF88CC88),      // tail — светло-зелёный
-            Color(0xFFF0F5F0),      // bg — светло-серый с зелёным
-            Color(0xFFE0E8E0),      // bgSymbol — едва видимый
-            Color(0xFF228822)       // glow
-        )
+        headColor = Color(0xFF001100)
+        brightColor = Color(0xFF004400)
+        midColor = Color(0xFF116611)
+        tailColor = Color(0xFF88CC88)
+        bgColor = Color(0xFFF0F5F0)
+        bgSymbolColor = Color(0xFFE0E8E0)
+        glowColor = Color(0xFF228822)
     }
 
-    // Paint для фоновых символов
     val bgPaint = remember {
         Paint().apply {
             isAntiAlias = true
@@ -97,7 +94,6 @@ fun MatrixRain(modifier: Modifier = Modifier, isDark: Boolean = true) {
         }
     }
 
-    // Paint для ярких символов (с blur/glow на API >= 31)
     val glowPaint = remember {
         Paint().apply {
             isAntiAlias = true
@@ -105,7 +101,6 @@ fun MatrixRain(modifier: Modifier = Modifier, isDark: Boolean = true) {
             textSize = with(density) { 14.dp.toPx() }
             textAlign = Paint.Align.CENTER
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                // Gaussian blur для свечения
                 maskFilter = BlurMaskFilter(8f, BlurMaskFilter.Blur.NORMAL)
             }
         }
@@ -124,7 +119,6 @@ fun MatrixRain(modifier: Modifier = Modifier, isDark: Boolean = true) {
         val width = size.width
         val height = size.height
 
-        // Фон
         drawRect(color = bgColor, size = size)
 
         @Suppress("UNUSED_EXPRESSION") tick
@@ -132,13 +126,10 @@ fun MatrixRain(modifier: Modifier = Modifier, isDark: Boolean = true) {
         drawIntoCanvas { canvas ->
             val nc = canvas.nativeCanvas
 
-            // === РИСУЕМ ФОНОВУЮ СЕТКУ ===
-            // Все ячейки заполнены тусклыми символами
+            // Фоновая сетка
             for (cx in 0 until cols) {
                 for (ry in 0 until rows) {
                     val (ch, phase) = bgGrid[cx][ry]
-                    
-                    // Мерцание: синусоида + случайность
                     val flicker = 0.03f + 0.04f * kotlin.math.sin(bgPhase.floatValue + phase * 6.28f)
                     val alpha = (flicker * 255).toInt().coerceIn(5, 40)
                     
@@ -151,7 +142,7 @@ fun MatrixRain(modifier: Modifier = Modifier, isDark: Boolean = true) {
                 }
             }
 
-            // === РИСУЕМ ЯРКИЕ STREAMS поверх ===
+            // Яркие streams
             for ((colIdx, stream) in streams.withIndex()) {
                 if (!stream.active) continue
                 
@@ -160,10 +151,8 @@ fun MatrixRain(modifier: Modifier = Modifier, isDark: Boolean = true) {
                 for (i in 0 until stream.length) {
                     val rowIdx = ((stream.headRow - i) % rows + rows) % rows
                     val cy = rowIdx * CELL + CELL * 0.75f
-                    
                     val ch = stream.chars[i % stream.chars.size]
                     
-                    // Градиент от головы к хвосту
                     val (color, alpha, useGlow) = when {
                         i == 0 -> Triple(headColor, 1.0f, true)
                         i == 1 -> Triple(brightColor, 0.95f, true)
@@ -174,14 +163,12 @@ fun MatrixRain(modifier: Modifier = Modifier, isDark: Boolean = true) {
 
                     val finalAlpha = (alpha * 255).toInt().coerceIn(0, 255)
 
-                    // Glow-слой для головы (blur)
                     if (useGlow && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                         glowPaint.color = glowColor.copy(alpha = alpha * 0.3f).toArgb()
                         glowPaint.alpha = (alpha * 0.3f * 255).toInt()
                         nc.drawText(ch.toString(), x, cy, glowPaint)
                     }
 
-                    // Основной символ
                     paint.color = color.toArgb()
                     paint.alpha = finalAlpha
                     nc.drawText(ch.toString(), x, cy, paint)
@@ -191,9 +178,6 @@ fun MatrixRain(modifier: Modifier = Modifier, isDark: Boolean = true) {
     }
 }
 
-/**
- * Состояние одной падающей полосы (stream)
- */
 private class StreamState(private val screenH: Float, private val rows: Int) {
     var active: Boolean = Random.nextFloat() < 0.6f
     var headRow: Float = -Random.nextInt(rows).toFloat()
@@ -213,19 +197,16 @@ private class StreamState(private val screenH: Float, private val rows: Int) {
 
         headRow += speed
 
-        // Зацикливаем
         if (headRow > rows + length) {
             headRow = -length.toFloat()
             if (Random.nextFloat() < 0.25f) {
                 active = false
                 return
             }
-            // Новые параметры при перезапуске
             length = 8 + Random.nextInt(20)
             speed = 0.15f + Random.nextFloat() * 0.35f
         }
 
-        // Меняем случайные символы
         changeTimer++
         if (changeTimer > 3) {
             changeTimer = 0
