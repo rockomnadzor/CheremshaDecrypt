@@ -1,5 +1,6 @@
 package com.github.cheremsha.decrypt.crypt.app.ui
 
+import android.graphics.BlurMaskFilter
 import android.graphics.Paint
 import android.graphics.Typeface
 import androidx.compose.foundation.Canvas
@@ -17,8 +18,9 @@ import kotlinx.coroutines.isActive
 import kotlin.random.Random
 
 private const val CHARS = "0123456789"
-private const val CELL = 20f
-private const val FRAME_MS = 80L
+private const val CELL = 22f
+private const val FRAME_MS = 100L
+private const val DENSITY_FRACTION = 0.5f // доля активных колонок — меньше = быстрее
 
 @Composable
 fun MatrixRain(modifier: Modifier = Modifier, isDark: Boolean = true) {
@@ -27,30 +29,30 @@ fun MatrixRain(modifier: Modifier = Modifier, isDark: Boolean = true) {
     val w = with(density) { config.screenWidthDp.dp.toPx() }
     val h = with(density) { config.screenHeightDp.dp.toPx() }
 
-    val cols = remember(w) { (w / CELL).toInt().coerceAtLeast(1) }
-    val ys     = remember(cols) { FloatArray(cols) { -Random.nextInt(2000).toFloat() } }
-    val speeds = remember(cols) { FloatArray(cols) { 0.6f + Random.nextFloat() * 1.6f } }
-    val lens   = remember(cols) { IntArray(cols) { 6 + Random.nextInt(14) } }
-    val chars  = remember(cols) { Array(cols) { CharArray(32) { CHARS.random() } } }
-    val active = remember(cols) { BooleanArray(cols) { Random.nextFloat() < 0.65f } }
+    val allCols = remember(w) { (w / CELL).toInt().coerceAtLeast(1) }
+    // Активные колонки — заранее отобранное подмножество, не пересчитывается каждый кадр
+    val activeCols = remember(allCols) {
+        (0 until allCols).filter { Random.nextFloat() < DENSITY_FRACTION }
+    }
+    val n = activeCols.size
+
+    val ys     = remember(n) { FloatArray(n) { -Random.nextInt(2000).toFloat() } }
+    val speeds = remember(n) { FloatArray(n) { 0.8f + Random.nextFloat() * 1.8f } }
+    val lens   = remember(n) { IntArray(n) { 6 + Random.nextInt(10) } }
+    val chars  = remember(n) { Array(n) { CharArray(20) { CHARS.random() } } }
 
     var tick by remember { mutableLongStateOf(0L) }
 
-    LaunchedEffect(cols, h) {
+    LaunchedEffect(n, h) {
         while (isActive) {
             delay(FRAME_MS)
-            for (c in 0 until cols) {
-                if (!active[c]) {
-                    if (Random.nextFloat() < 0.003f) active[c] = true
-                    continue
+            for (i in 0 until n) {
+                ys[i] += speeds[i] * CELL * 0.35f
+                if (ys[i] > h + lens[i] * CELL) {
+                    ys[i] = -Random.nextInt(300).toFloat()
                 }
-                ys[c] += speeds[c] * CELL * 0.30f
-                if (ys[c] > h + lens[c] * CELL) {
-                    ys[c] = -Random.nextInt(300).toFloat()
-                    if (Random.nextFloat() < 0.3f) active[c] = false
-                }
-                if (Random.nextFloat() < 0.10f) {
-                    chars[c][Random.nextInt(32)] = CHARS.random()
+                if (Random.nextFloat() < 0.08f) {
+                    chars[i][Random.nextInt(20)] = CHARS.random()
                 }
             }
             tick++
@@ -60,28 +62,35 @@ fun MatrixRain(modifier: Modifier = Modifier, isDark: Boolean = true) {
     val headColor: Color
     val nearColor: Color
     val tailColor: Color
+    val glowColor: Color
     if (isDark) {
-        headColor = Color(0xFFEFFFEF)
-        nearColor = Color(0xFF5CFF7A)
-        tailColor = Color(0xFF12B34A)
+        headColor = Color(0xFFF2FFF2)
+        nearColor = Color(0xFF66FF80)
+        tailColor = Color(0xFF14B34A)
+        glowColor = Color(0xFF33FF66)
     } else {
-        headColor = Color(0xFF003D14)
+        headColor = Color(0xFF00330F)
         nearColor = Color(0xFF0B7A2E)
         tailColor = Color(0xFF1FA34A)
+        glowColor = Color(0xFF0B7A2E)
     }
+
+    val textSizePx = with(density) { 17.dp.toPx() }
 
     val paint = remember {
         Paint().apply {
             isAntiAlias = true
             typeface = Typeface.MONOSPACE
-            textSize = with(density) { 16.dp.toPx() }
+            textSize = textSizePx
         }
     }
-    val glowPaint = remember {
+    // Отдельный Paint с настоящим blur — рисуется под основным символом только у "головы"
+    val glowPaint = remember(textSizePx) {
         Paint().apply {
             isAntiAlias = true
             typeface = Typeface.MONOSPACE
-            textSize = with(density) { 18.dp.toPx() }
+            textSize = textSizePx
+            maskFilter = BlurMaskFilter(10f, BlurMaskFilter.Blur.NORMAL)
         }
     }
 
@@ -90,31 +99,32 @@ fun MatrixRain(modifier: Modifier = Modifier, isDark: Boolean = true) {
 
         drawIntoCanvas { canvas ->
             val nc = canvas.nativeCanvas
-            for (col in 0 until cols) {
-                if (!active[col]) continue
-                val x = col * CELL
-                val y = ys[col]
-                val len = lens[col]
-                val colChars = chars[col]
+            for (i in 0 until n) {
+                val x = activeCols[i] * CELL
+                val y = ys[i]
+                val len = lens[i]
+                val colChars = chars[i]
 
-                for (i in 0 until len) {
-                    val cy = y - i * CELL
+                // Glow-пятно за "головой" капли — один вызов на колонку, не на каждый символ
+                if (y in -CELL..(size.height + CELL)) {
+                    glowPaint.color = glowColor.toArgb()
+                    glowPaint.alpha = 140
+                    nc.drawText(colChars[0].toString(), x, y, glowPaint)
+                }
+
+                for (j in 0 until len) {
+                    val cy = y - j * CELL
                     if (cy < -CELL || cy > size.height) continue
 
-                    val idx = ((y / CELL).toInt().coerceAtLeast(0) + i) % colChars.size
+                    val idx = j % colChars.size
                     val ch = colChars[idx].toString()
 
                     val color = when {
-                        i == 0 -> headColor
-                        i <= 2 -> nearColor
+                        j == 0 -> headColor
+                        j <= 2 -> nearColor
                         else -> tailColor.copy(
-                            alpha = maxOf(0.08f, (1f - i.toFloat() / len) * 0.9f)
+                            alpha = maxOf(0.10f, (1f - j.toFloat() / len) * 0.9f)
                         )
-                    }
-
-                    if (i <= 1) {
-                        glowPaint.color = color.copy(alpha = 0.35f).toArgb()
-                        nc.drawText(ch, x, cy, glowPaint)
                     }
 
                     paint.color = color.toArgb()
