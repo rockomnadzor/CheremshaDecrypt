@@ -54,7 +54,7 @@ class MainActivity : ComponentActivity() {
 
             // null = показываем приложение, "full" = весь онбординг, "keyOnly" = только экран ввода ключа
             var onboardingMode by remember {
-                mutableStateOf(if (!ApiKeyManager.hasKey(this@MainActivity)) "full" else null)
+                mutableStateOf(if (!ApiKeyManager.hasValidSetup(this@MainActivity)) "full" else null)
             }
             var screen by remember { mutableStateOf("home") }
 

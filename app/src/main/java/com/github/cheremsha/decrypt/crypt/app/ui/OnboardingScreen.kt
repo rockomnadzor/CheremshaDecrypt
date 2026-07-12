@@ -10,9 +10,11 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowForward
@@ -37,12 +39,14 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.github.cheremsha.decrypt.crypt.app.R
 import com.github.cheremsha.decrypt.crypt.app.crypto.ApiKeyManager
-import com.github.cheremsha.decrypt.crypt.app.crypto.HappyDecoderApi
+import com.github.cheremsha.decrypt.crypt.app.crypto.ApiProvider
+import com.github.cheremsha.decrypt.crypt.app.crypto.DecryptApi
+import com.github.cheremsha.decrypt.crypt.app.crypto.HAPPY_DECODER_DEMO_KEY
+import com.github.cheremsha.decrypt.crypt.app.crypto.HAPPY_DECODER_SITE
+import com.github.cheremsha.decrypt.crypt.app.crypto.RING_BOT_LINK
 import com.github.cheremsha.decrypt.crypt.app.ui.theme.*
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-
-private const val KEY_GEN_URL = "https://happy-decoder.cc/api"
 
 @Composable
 fun OnboardingScreen(isDark: Boolean, keyOnlyMode: Boolean = false, onFinished: () -> Unit, onCancel: () -> Unit = {}) {
@@ -52,13 +56,17 @@ fun OnboardingScreen(isDark: Boolean, keyOnlyMode: Boolean = false, onFinished: 
     val scope = rememberCoroutineScope()
 
     var page by remember { mutableIntStateOf(if (keyOnlyMode) 2 else 0) }
+    var selectedProvider by remember { mutableStateOf<ApiProvider?>(ApiKeyManager.getProvider(context)) }
+    var showInfoDialog by remember { mutableStateOf<ApiProvider?>(null) }
+
     var keyInput by remember { mutableStateOf("") }
+    var useDemoKey by remember { mutableStateOf(false) }
     var validating by remember { mutableStateOf(false) }
     var errorMsg by remember { mutableStateOf<String?>(null) }
 
     Box(Modifier.fillMaxSize().background(colors.bg)) {
         MatrixRain(
-            modifier = Modifier.fillMaxSize().alpha(if (isDark) 0.35f else 0.45f),
+            modifier = Modifier.fillMaxSize().alpha(if (isDark) 0.5f else 0.5f),
             isDark = isDark
         )
 
@@ -70,43 +78,79 @@ fun OnboardingScreen(isDark: Boolean, keyOnlyMode: Boolean = false, onFinished: 
             when (p) {
                 0 -> WelcomePage(colors, onNext = { page = 1 })
                 1 -> FeaturePage(colors, onBack = { page = 0 }, onNext = { page = 2 })
-                2 -> KeyPage(
+                2 -> ProviderPage(
                     colors = colors,
-                    keyInput = keyInput,
-                    onKeyChange = { keyInput = it; errorMsg = null },
-                    validating = validating,
-                    errorMsg = errorMsg,
-                    onCopyLink = {
-                        clipboard.setText(AnnotatedString(KEY_GEN_URL))
-                        Toast.makeText(context, "Ссылка скопирована", Toast.LENGTH_SHORT).show()
+                    selected = selectedProvider,
+                    onSelect = { provider ->
+                        selectedProvider = provider
+                        keyInput = ""
+                        useDemoKey = false
+                        errorMsg = null
+                        if (provider == ApiProvider.HAPPY_DECODER || provider == ApiProvider.RING_ENCRYPT) {
+                            showInfoDialog = provider
+                        }
                     },
                     onBack = { if (keyOnlyMode) onCancel() else page = 1 },
+                    onNext = { if (selectedProvider != null) page = 3 }
+                )
+                else -> KeyPage(
+                    colors = colors,
+                    provider = selectedProvider,
+                    keyInput = keyInput,
+                    onKeyChange = { keyInput = it; errorMsg = null },
+                    useDemoKey = useDemoKey,
+                    onUseDemoKeyChange = { useDemoKey = it; errorMsg = null },
+                    validating = validating,
+                    errorMsg = errorMsg,
+                    onCopyLink = { link ->
+                        clipboard.setText(AnnotatedString(link))
+                        Toast.makeText(context, "Ссылка скопирована", Toast.LENGTH_SHORT).show()
+                    },
+                    onBack = { page = 2 },
                     onValidate = {
-                        val trimmed = keyInput.trim()
-                        if (trimmed.isBlank()) {
+                        val provider = selectedProvider ?: return@KeyPage
+                        val finalKey = when {
+                            !provider.requiresKey -> null
+                            provider == ApiProvider.HAPPY_DECODER && useDemoKey -> HAPPY_DECODER_DEMO_KEY
+                            else -> keyInput.trim()
+                        }
+                        if (provider.requiresKey && finalKey.isNullOrBlank()) {
                             errorMsg = "Введите ключ"
                         } else {
                             validating = true
                             scope.launch {
-                                val ok = HappyDecoderApi.validateKey(trimmed)
+                                val ok = DecryptApi.validate(provider, finalKey)
                                 validating = false
                                 if (ok) {
-                                    ApiKeyManager.setKey(context, trimmed)
-                                    page = 3
+                                    ApiKeyManager.setProvider(context, provider)
+                                    if (finalKey != null) ApiKeyManager.setKey(context, provider, finalKey)
+                                    page = 4
                                 } else {
-                                    errorMsg = "Неверный или неактивный ключ"
+                                    errorMsg = "Не удалось подтвердить (ключ или сервис недоступен)"
                                 }
                             }
                         }
                     }
                 )
-                else -> SuccessPage(colors)
             }
+
+            if (p == 4) SuccessPage(colors)
+        }
+
+        showInfoDialog?.let { provider ->
+            ProviderInfoDialog(
+                provider = provider,
+                onCopy = { link ->
+                    clipboard.setText(AnnotatedString(link))
+                    Toast.makeText(context, "Ссылка скопирована", Toast.LENGTH_SHORT).show()
+                },
+                onDismiss = { showInfoDialog = null }
+            )
         }
     }
 
     LaunchedEffect(page) {
-        if (page == 3) {
+        if (page == 4) {
             delay(1600)
             onFinished()
         }
@@ -132,15 +176,16 @@ private fun AppIcon(size: androidx.compose.ui.unit.Dp = 96.dp) {
 }
 
 @Composable
-private fun NavArrow(icon: androidx.compose.ui.graphics.vector.ImageVector, onClick: () -> Unit) {
+private fun NavArrow(icon: androidx.compose.ui.graphics.vector.ImageVector, enabled: Boolean = true, onClick: () -> Unit) {
     IconButton(
         onClick = onClick,
+        enabled = enabled,
         modifier = Modifier
             .size(52.dp)
             .clip(CircleShape)
-            .background(CyanDim)
+            .background(if (enabled) CyanDim else Color(0xFF1A1A1A))
     ) {
-        Icon(icon, null, tint = Cyan)
+        Icon(icon, null, tint = if (enabled) Cyan else Color(0xFF444444))
     }
 }
 
@@ -154,21 +199,11 @@ private fun WelcomePage(colors: AppColors, onNext: () -> Unit) {
         ) {
             AppIcon(120.dp)
             Spacer(Modifier.height(28.dp))
-            Text(
-                "ДОБРО ПОЖАЛОВАТЬ В",
-                color = colors.textSecondary, fontSize = 13.sp,
-                fontFamily = FontFamily.Monospace, letterSpacing = 2.sp
-            )
+            Text("ДОБРО ПОЖАЛОВАТЬ В", color = colors.textSecondary, fontSize = 13.sp, fontFamily = FontFamily.Monospace, letterSpacing = 2.sp)
             Spacer(Modifier.height(6.dp))
-            Text(
-                "CHEREMSHA DECRYPT",
-                color = Cyan, fontSize = 22.sp, fontWeight = FontWeight.ExtraBold,
-                fontFamily = FontFamily.Monospace, letterSpacing = 2.sp, textAlign = TextAlign.Center
-            )
+            Text("CHEREMSHA DECRYPT", color = Cyan, fontSize = 22.sp, fontWeight = FontWeight.ExtraBold, fontFamily = FontFamily.Monospace, letterSpacing = 2.sp, textAlign = TextAlign.Center)
         }
-        Box(Modifier.align(Alignment.BottomEnd).padding(24.dp)) {
-            NavArrow(Icons.Default.ArrowForward, onNext)
-        }
+        Box(Modifier.align(Alignment.BottomEnd).padding(24.dp)) { NavArrow(Icons.Default.ArrowForward, onClick = onNext) }
     }
 }
 
@@ -182,112 +217,199 @@ private fun FeaturePage(colors: AppColors, onBack: () -> Unit, onNext: () -> Uni
         ) {
             AppIcon(120.dp)
             Spacer(Modifier.height(28.dp))
-            Text(
-                "Расшифровывайте подписки",
-                color = colors.textPrimary, fontSize = 17.sp,
-                fontWeight = FontWeight.Medium, textAlign = TextAlign.Center
-            )
+            Text("Расшифровывайте подписки", color = colors.textPrimary, fontSize = 17.sp, fontWeight = FontWeight.Medium, textAlign = TextAlign.Center)
             Spacer(Modifier.height(4.dp))
-            Text(
-                "happ://crypt",
-                color = Purple, fontSize = 20.sp, fontWeight = FontWeight.Bold,
-                fontFamily = FontFamily.Monospace
-            )
+            Text("happ://crypt", color = Purple, fontSize = 20.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
         }
-        Box(Modifier.align(Alignment.BottomStart).padding(24.dp)) {
-            NavArrow(Icons.Default.ArrowBack, onBack)
-        }
-        Box(Modifier.align(Alignment.BottomEnd).padding(24.dp)) {
-            NavArrow(Icons.Default.ArrowForward, onNext)
-        }
+        Box(Modifier.align(Alignment.BottomStart).padding(24.dp)) { NavArrow(Icons.Default.ArrowBack, onClick = onBack) }
+        Box(Modifier.align(Alignment.BottomEnd).padding(24.dp)) { NavArrow(Icons.Default.ArrowForward, onClick = onNext) }
     }
+}
+
+@Composable
+private fun ProviderPage(
+    colors: AppColors,
+    selected: ApiProvider?,
+    onSelect: (ApiProvider) -> Unit,
+    onBack: () -> Unit,
+    onNext: () -> Unit
+) {
+    Box(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
+        Column(
+            Modifier.fillMaxSize().padding(24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Text("Выберите оператора ключа", color = colors.textPrimary, fontSize = 17.sp, fontWeight = FontWeight.Medium, textAlign = TextAlign.Center)
+            Spacer(Modifier.height(20.dp))
+
+            ApiProvider.entries.forEach { provider ->
+                val isSelected = provider == selected
+                Row(
+                    Modifier
+                        .fillMaxWidth(0.85f)
+                        .padding(vertical = 5.dp)
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(if (isSelected) Cyan.copy(alpha = 0.12f) else colors.cardBg)
+                        .clickable { onSelect(provider) }
+                        .padding(horizontal = 14.dp, vertical = 14.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    RadioButton(
+                        selected = isSelected,
+                        onClick = { onSelect(provider) },
+                        colors = RadioButtonDefaults.colors(selectedColor = Cyan, unselectedColor = colors.textDim)
+                    )
+                    Spacer(Modifier.width(6.dp))
+                    Text(provider.label, color = if (isSelected) Cyan else colors.textPrimary, fontSize = 14.sp, fontFamily = FontFamily.Monospace)
+                }
+            }
+        }
+        Box(Modifier.align(Alignment.BottomStart).padding(24.dp)) { NavArrow(Icons.Default.ArrowBack, onClick = onBack) }
+        Box(Modifier.align(Alignment.BottomEnd).padding(24.dp)) { NavArrow(Icons.Default.ArrowForward, enabled = selected != null, onClick = onNext) }
+    }
+}
+
+@Composable
+private fun ProviderInfoDialog(provider: ApiProvider, onCopy: (String) -> Unit, onDismiss: () -> Unit) {
+    val (title, link) = when (provider) {
+        ApiProvider.HAPPY_DECODER -> "Для работы с этим API перейдите на сайт и вставьте ссылку в указанное поле" to HAPPY_DECODER_SITE
+        ApiProvider.RING_ENCRYPT -> "Для использования этого API сгенерируйте ключ в боте" to RING_BOT_LINK
+        ApiProvider.KFWL_LOL -> return
+    }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = Color(0xFF181818),
+        title = { Text(title, color = Color.White, fontSize = 15.sp) },
+        text = {
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(Color(0xFF0E0E0E))
+                    .clickable { onCopy(link) }
+                    .padding(horizontal = 12.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(Icons.Default.ContentCopy, null, tint = Cyan, modifier = Modifier.size(15.dp))
+                Spacer(Modifier.width(8.dp))
+                Text(link, color = Cyan, fontSize = 12.sp, fontFamily = FontFamily.Monospace)
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) { Text("ОК", color = Cyan) }
+        }
+    )
 }
 
 @Composable
 private fun KeyPage(
     colors: AppColors,
+    provider: ApiProvider?,
     keyInput: String,
     onKeyChange: (String) -> Unit,
+    useDemoKey: Boolean,
+    onUseDemoKeyChange: (Boolean) -> Unit,
     validating: Boolean,
     errorMsg: String?,
-    onCopyLink: () -> Unit,
+    onCopyLink: (String) -> Unit,
     onBack: () -> Unit,
     onValidate: () -> Unit
 ) {
+    if (provider == null) return
+
     Box(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
         Column(
             Modifier
                 .fillMaxSize()
+                .verticalScroll(rememberScrollState())
                 .padding(24.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            Text(
-                "Для начала работы",
-                color = colors.textPrimary, fontSize = 17.sp, fontWeight = FontWeight.Medium,
-                textAlign = TextAlign.Center
-            )
-            Spacer(Modifier.height(6.dp))
-            Text(
-                "сгенерируйте свой ключ на сайте",
-                color = colors.textSecondary, fontSize = 14.sp, textAlign = TextAlign.Center
-            )
-            Spacer(Modifier.height(12.dp))
-            Row(
-                Modifier
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(colors.cardBg)
-                    .clickable(onClick = onCopyLink)
-                    .padding(horizontal = 14.dp, vertical = 10.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(Icons.Default.ContentCopy, null, tint = Cyan, modifier = Modifier.size(16.dp))
-                Spacer(Modifier.width(8.dp))
-                Text(
-                    "happy-decoder.cc/api",
-                    color = Cyan, fontSize = 13.sp, fontFamily = FontFamily.Monospace
+            if (!provider.requiresKey) {
+                Text("${provider.label} не требует ключа", color = colors.textPrimary, fontSize = 15.sp, textAlign = TextAlign.Center)
+                Spacer(Modifier.height(6.dp))
+                Text("Нажмите «Продолжить», чтобы проверить доступность сервиса", color = colors.textSecondary, fontSize = 12.sp, textAlign = TextAlign.Center)
+            } else {
+                Text("Вставьте ключ для", color = colors.textPrimary, fontSize = 15.sp, textAlign = TextAlign.Center)
+                Text(provider.label, color = Cyan, fontSize = 16.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
+                Spacer(Modifier.height(16.dp))
+
+                if (provider == ApiProvider.HAPPY_DECODER) {
+                    Row(
+                        Modifier
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(colors.cardBg)
+                            .clickable { onCopyLink(HAPPY_DECODER_SITE) }
+                            .padding(horizontal = 14.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(Icons.Default.ContentCopy, null, tint = Cyan, modifier = Modifier.size(15.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text("happy-decoder.cc/api", color = Cyan, fontSize = 13.sp, fontFamily = FontFamily.Monospace)
+                    }
+                    Spacer(Modifier.height(14.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth(0.9f)) {
+                        Checkbox(
+                            checked = useDemoKey,
+                            onCheckedChange = onUseDemoKeyChange,
+                            colors = CheckboxDefaults.colors(checkedColor = Orange, uncheckedColor = colors.textDim)
+                        )
+                        Spacer(Modifier.width(4.dp))
+                        Text("Использовать демо-ключ", color = if (useDemoKey) Orange else colors.textSecondary, fontSize = 13.sp)
+                    }
+                    Spacer(Modifier.height(10.dp))
+                } else if (provider == ApiProvider.RING_ENCRYPT) {
+                    Row(
+                        Modifier
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(colors.cardBg)
+                            .clickable { onCopyLink(RING_BOT_LINK) }
+                            .padding(horizontal = 14.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(Icons.Default.ContentCopy, null, tint = Cyan, modifier = Modifier.size(15.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text("t.me/Ring_encrypt_bot", color = Cyan, fontSize = 13.sp, fontFamily = FontFamily.Monospace)
+                    }
+                    Spacer(Modifier.height(14.dp))
+                }
+
+                OutlinedTextField(
+                    value = if (provider == ApiProvider.HAPPY_DECODER && useDemoKey) HAPPY_DECODER_DEMO_KEY else keyInput,
+                    onValueChange = onKeyChange,
+                    enabled = !(provider == ApiProvider.HAPPY_DECODER && useDemoKey),
+                    placeholder = { Text("hd_... / ring_enc...", color = colors.textDim, fontFamily = FontFamily.Monospace) },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                    textStyle = LocalTextStyle.current.copy(fontFamily = FontFamily.Monospace, fontSize = 13.sp),
+                    modifier = Modifier.fillMaxWidth(0.9f),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = Cyan.copy(alpha = 0.6f),
+                        unfocusedBorderColor = colors.border,
+                        disabledBorderColor = colors.border.copy(alpha = 0.5f),
+                        focusedTextColor = colors.textPrimary,
+                        unfocusedTextColor = colors.textSecondary,
+                        disabledTextColor = colors.textDim,
+                        cursorColor = Cyan
+                    )
                 )
             }
-            Spacer(Modifier.height(28.dp))
-            Text(
-                "затем вставьте полученный ключ сюда",
-                color = colors.textSecondary, fontSize = 13.sp, textAlign = TextAlign.Center
-            )
-            Spacer(Modifier.height(10.dp))
-            OutlinedTextField(
-                value = keyInput,
-                onValueChange = onKeyChange,
-                placeholder = { Text("hd_...", color = colors.textDim, fontFamily = FontFamily.Monospace) },
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-                textStyle = LocalTextStyle.current.copy(fontFamily = FontFamily.Monospace, fontSize = 13.sp),
-                modifier = Modifier.fillMaxWidth(0.9f),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = Cyan.copy(alpha = 0.6f),
-                    unfocusedBorderColor = colors.border,
-                    focusedTextColor = colors.textPrimary,
-                    unfocusedTextColor = colors.textSecondary,
-                    cursorColor = Cyan
-                )
-            )
+
             errorMsg?.let {
                 Spacer(Modifier.height(8.dp))
-                Text(it, color = RedProto, fontSize = 12.sp)
+                Text(it, color = RedProto, fontSize = 12.sp, textAlign = TextAlign.Center)
             }
         }
-        Box(Modifier.align(Alignment.BottomStart).padding(24.dp)) {
-            NavArrow(Icons.Default.ArrowBack, onBack)
-        }
+        Box(Modifier.align(Alignment.BottomStart).padding(24.dp)) { NavArrow(Icons.Default.ArrowBack, onClick = onBack) }
         Box(Modifier.align(Alignment.BottomEnd).padding(24.dp)) {
             if (validating) {
-                Box(
-                    Modifier.size(52.dp).clip(CircleShape).background(CyanDim),
-                    contentAlignment = Alignment.Center
-                ) {
+                Box(Modifier.size(52.dp).clip(CircleShape).background(CyanDim), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator(modifier = Modifier.size(22.dp), color = Cyan, strokeWidth = 2.dp)
                 }
             } else {
-                NavArrow(Icons.Default.ArrowForward, onValidate)
+                NavArrow(Icons.Default.ArrowForward, onClick = onValidate)
             }
         }
     }
@@ -303,11 +425,7 @@ private fun SuccessPage(colors: AppColors) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Icon(Icons.Default.CheckCircle, null, tint = Green, modifier = Modifier.size(64.dp))
                 Spacer(Modifier.height(16.dp))
-                Text(
-                    "Успешно!",
-                    color = Green, fontSize = 22.sp, fontWeight = FontWeight.Bold,
-                    fontFamily = FontFamily.Monospace
-                )
+                Text("Успешно!", color = Green, fontSize = 22.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
             }
         }
     }

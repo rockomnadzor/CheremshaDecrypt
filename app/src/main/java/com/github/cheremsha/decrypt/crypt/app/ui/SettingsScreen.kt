@@ -108,6 +108,11 @@ fun SettingsScreen(vm: MainViewModel, isDark: Boolean, onBack: () -> Unit, onLog
                         "HTTP API decrypt • VPN config parser",
                         color = colors.textDim, fontSize = 11.sp, fontFamily = FontFamily.Monospace
                     )
+                    Spacer(Modifier.height(2.dp))
+                    Text(
+                        "made by @ovi_god",
+                        color = colors.textDim, fontSize = 10.sp, fontFamily = FontFamily.Monospace
+                    )
                 }
             }
 

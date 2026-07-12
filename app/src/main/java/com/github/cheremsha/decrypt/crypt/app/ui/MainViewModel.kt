@@ -7,7 +7,7 @@ import android.provider.Settings
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.github.cheremsha.decrypt.crypt.app.crypto.ApiKeyManager
-import com.github.cheremsha.decrypt.crypt.app.crypto.HappyDecoderApi
+import com.github.cheremsha.decrypt.crypt.app.crypto.DecryptApi
 import com.github.cheremsha.decrypt.crypt.app.network.SubFetcher
 import com.github.cheremsha.decrypt.crypt.app.parser.VpnConfig
 import com.github.cheremsha.decrypt.crypt.app.parser.VpnConfigParser
@@ -107,10 +107,12 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         val raw = _input.value.trim()
 
         runCatching {
-            val decryptedUrl = if (raw.startsWith("happ://")) {
+            val decryptedUrl = if (raw.startsWith("happ://") || raw.startsWith("incy://")) {
                 _state.value = UiState.Working("Дешифровка через API...")
-                val apiKey = ApiKeyManager.getKey(getApplication()) ?: error("API-ключ не найден")
-                HappyDecoderApi.decrypt(raw, apiKey).getOrThrow()
+                val app = getApplication<Application>()
+                val provider = ApiKeyManager.getProvider(app) ?: error("API-провайдер не выбран")
+                val apiKey = if (provider.requiresKey) ApiKeyManager.getKey(app, provider) else null
+                DecryptApi.decrypt(provider, apiKey, raw).getOrThrow()
             } else raw
 
             if (raw.startsWith("happ://")) {

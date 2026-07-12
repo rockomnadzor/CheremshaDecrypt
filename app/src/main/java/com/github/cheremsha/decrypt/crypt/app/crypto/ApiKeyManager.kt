@@ -4,18 +4,34 @@ import android.content.Context
 
 object ApiKeyManager {
     private const val PREFS = "cheremsha_prefs"
-    private const val KEY = "happy_decoder_api_key"
+    private const val PROVIDER_KEY = "api_provider"
 
-    fun getKey(context: Context): String? =
-        context.getSharedPreferences(PREFS, 0).getString(KEY, null)
+    private fun keyPrefKey(p: ApiProvider) = "api_key_${p.id}"
 
-    fun setKey(context: Context, key: String) {
-        context.getSharedPreferences(PREFS, 0).edit().putString(KEY, key).apply()
+    fun getProvider(context: Context): ApiProvider? {
+        val id = context.getSharedPreferences(PREFS, 0).getString(PROVIDER_KEY, null) ?: return null
+        return ApiProvider.entries.find { it.id == id }
     }
 
-    fun clearKey(context: Context) {
-        context.getSharedPreferences(PREFS, 0).edit().remove(KEY).apply()
+    fun setProvider(context: Context, provider: ApiProvider) {
+        context.getSharedPreferences(PREFS, 0).edit().putString(PROVIDER_KEY, provider.id).apply()
     }
 
-    fun hasKey(context: Context): Boolean = !getKey(context).isNullOrBlank()
+    fun getKey(context: Context, provider: ApiProvider): String? =
+        context.getSharedPreferences(PREFS, 0).getString(keyPrefKey(provider), null)
+
+    fun setKey(context: Context, provider: ApiProvider, key: String) {
+        context.getSharedPreferences(PREFS, 0).edit().putString(keyPrefKey(provider), key).apply()
+    }
+
+    /** Готово ли приложение к работе: провайдер выбран, и если ему нужен ключ — ключ сохранён. */
+    fun hasValidSetup(context: Context): Boolean {
+        val p = getProvider(context) ?: return false
+        if (!p.requiresKey) return true
+        return !getKey(context, p).isNullOrBlank()
+    }
+
+    fun clearProvider(context: Context) {
+        context.getSharedPreferences(PREFS, 0).edit().remove(PROVIDER_KEY).apply()
+    }
 }
